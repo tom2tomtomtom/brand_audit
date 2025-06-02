@@ -69,11 +69,15 @@ export function extractDomain(url: string) {
 
 export function isValidUrl(string: string) {
   try {
-    new URL(string);
-    return true;
+    const url = new URL(string);
+    return url.protocol === 'http:' || url.protocol === 'https:';
   } catch {
     return false;
   }
+}
+
+export function sanitizeFilename(filename: string) {
+  return filename.replace(/[<>:"/\\|?*]/g, '');
 }
 
 export function truncateText(text: string, maxLength: number) {
