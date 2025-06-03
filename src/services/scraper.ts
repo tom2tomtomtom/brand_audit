@@ -1,9 +1,8 @@
-import puppeteer, { Browser, Page } from 'puppeteer';
-import * as cheerio from 'cheerio';
+import puppeteer, { Browser } from 'puppeteer';
 import robotsParser from 'robots-parser';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { uploadFile } from '@/lib/storage';
-import { extractDomain, isValidUrl, sleep } from '@/lib/utils';
+import { extractDomain, sleep } from '@/lib/utils';
 
 export interface ScrapingConfig {
   maxPages: number;
@@ -87,14 +86,17 @@ export class BrandScraperService {
       const robotsTxt = await response.text();
       const robots = robotsParser(robotsUrl, robotsTxt);
       
-      return robots.isAllowed(baseUrl, userAgent);
+      return robots.isAllowed(baseUrl, userAgent) ?? true;
     } catch (error) {
       console.warn('Error checking robots.txt:', error);
       return true; // Default to allowing if check fails
     }
   }
 
-  async scrapeBrand(brandId: string, websiteUrl: string): Promise<ScrapingResult> {
+  // Overload for different method signatures
+  async scrapeBrand(brandId: string, config?: Partial<ScrapingConfig>): Promise<ScrapingResult>;
+  async scrapeBrand(brandId: string, websiteUrl: string): Promise<ScrapingResult>;
+  async scrapeBrand(brandId: string, websiteUrlOrConfig?: string | Partial<ScrapingConfig>): Promise<ScrapingResult> {
     const result: ScrapingResult = {
       brandId,
       assets: [],
@@ -109,6 +111,28 @@ export class BrandScraperService {
     };
 
     try {
+      // Handle different method signatures
+      let websiteUrl: string;
+
+      if (typeof websiteUrlOrConfig === 'string') {
+        // Called with (brandId, websiteUrl)
+        websiteUrl = websiteUrlOrConfig;
+      } else {
+        // Called with (brandId, config) - need to get URL from database
+        const supabase = createServerSupabase();
+        const { data: brand } = await supabase
+          .from('brands')
+          .select('website_url')
+          .eq('id', brandId)
+          .single();
+
+        if (!brand?.website_url) {
+          result.errors.push('Brand website URL not found');
+          return result;
+        }
+        websiteUrl = brand.website_url;
+      }
+
       await this.initialize();
 
       // Check robots.txt
@@ -178,7 +202,7 @@ export class BrandScraperService {
       });
 
       // Wait for dynamic content
-      await page.waitForTimeout(2000);
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Extract page content
       const content = await page.evaluate(() => {
@@ -378,3 +402,6 @@ export class BrandScraperService {
       .eq('id', brandId);
   }
 }
+
+// Export alias for backward compatibility
+export { BrandScraperService as ScraperService };

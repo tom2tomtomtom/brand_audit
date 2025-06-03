@@ -103,7 +103,7 @@ export function DashboardContent() {
               Welcome back, {user?.user_metadata?.full_name || user?.email}
             </h1>
             <p className="text-gray-600 mt-1">
-              Here's what's happening with your brand analysis projects
+              Here&apos;s what&apos;s happening with your brand analysis projects
             </p>
           </div>
           <div className="flex items-center space-x-3">
@@ -193,7 +193,7 @@ export function DashboardContent() {
               Analysis Performance
             </CardTitle>
             <CardDescription>
-              Track your team's analysis efficiency over time
+              Track your team&apos;s analysis efficiency over time
             </CardDescription>
           </CardHeader>
           <CardContent>
