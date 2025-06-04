@@ -3,10 +3,14 @@ export abstract class AppError extends Error {
   abstract readonly statusCode: number;
   abstract readonly code: string;
   abstract readonly isOperational: boolean;
+  public readonly context?: Record<string, any>;
 
-  constructor(message: string, public readonly context?: Record<string, any>) {
+  constructor(message: string, context?: Record<string, any>) {
     super(message);
     this.name = this.constructor.name;
+    if (context) {
+      this.context = context;
+    }
     Error.captureStackTrace(this, this.constructor);
   }
 
@@ -107,52 +111,64 @@ export class ScrapingError extends AppError {
   }
 }
 
-export class TimeoutError extends ScrapingError {
+export class TimeoutError extends AppError {
+  readonly statusCode = 422;
   readonly code = 'SCRAPING_TIMEOUT';
+  readonly isOperational = true;
 
   constructor(url: string, timeout: number) {
-    super(url, `Operation timed out after ${timeout}ms`);
+    super(`Scraping timeout: Operation timed out after ${timeout}ms for ${url}`);
   }
 }
 
-export class NetworkError extends ScrapingError {
+export class NetworkError extends AppError {
+  readonly statusCode = 422;
   readonly code = 'NETWORK_ERROR';
+  readonly isOperational = true;
 
   constructor(url: string, message: string) {
-    super(url, `Network error: ${message}`);
+    super(`Network error for ${url}: ${message}`);
   }
 }
 
-export class RobotsBlockedError extends ScrapingError {
+export class RobotsBlockedError extends AppError {
+  readonly statusCode = 422;
   readonly code = 'ROBOTS_BLOCKED';
+  readonly isOperational = true;
 
   constructor(url: string) {
-    super(url, 'Scraping blocked by robots.txt');
+    super(`Scraping blocked by robots.txt for ${url}`);
   }
 }
 
 // AI Service Errors
-export class AIServiceError extends ExternalServiceError {
+export class AIServiceError extends AppError {
+  readonly statusCode = 502;
   readonly code = 'AI_SERVICE_ERROR';
+  readonly isOperational = true;
 
-  constructor(provider: string, message: string, originalError?: Error) {
-    super(provider, message, originalError);
+  constructor(provider: string, message: string, public readonly originalError?: Error) {
+    super(`${provider} AI service error: ${message}`);
   }
 }
 
-export class AIQuotaExceededError extends AIServiceError {
+export class AIQuotaExceededError extends AppError {
+  readonly statusCode = 429;
   readonly code = 'AI_QUOTA_EXCEEDED';
+  readonly isOperational = true;
 
   constructor(provider: string) {
-    super(provider, 'API quota exceeded');
+    super(`${provider} API quota exceeded`);
   }
 }
 
-export class AIInvalidResponseError extends AIServiceError {
+export class AIInvalidResponseError extends AppError {
+  readonly statusCode = 502;
   readonly code = 'AI_INVALID_RESPONSE';
+  readonly isOperational = true;
 
   constructor(provider: string, response: any) {
-    super(provider, 'Invalid response format', new Error(JSON.stringify(response)));
+    super(`${provider} returned invalid response format`, { response });
   }
 }
 
@@ -163,8 +179,10 @@ export class DatabaseError extends AppError {
   readonly isOperational = true;
 
   constructor(operation: string, message: string, originalError?: Error) {
-    super(`Database ${operation} failed: ${message}`);
-    this.context = { operation, originalError: originalError?.message };
+    super(`Database ${operation} failed: ${message}`, {
+      operation,
+      originalError: originalError?.message
+    });
   }
 }
 
@@ -211,16 +229,20 @@ export class BusinessLogicError extends AppError {
   }
 }
 
-export class InsufficientCreditsError extends BusinessLogicError {
+export class InsufficientCreditsError extends AppError {
+  readonly statusCode = 402;
   readonly code = 'INSUFFICIENT_CREDITS';
+  readonly isOperational = true;
 
   constructor(required: number, available: number) {
     super(`Insufficient credits: ${required} required, ${available} available`);
   }
 }
 
-export class SubscriptionRequiredError extends BusinessLogicError {
+export class SubscriptionRequiredError extends AppError {
+  readonly statusCode = 402;
   readonly code = 'SUBSCRIPTION_REQUIRED';
+  readonly isOperational = true;
 
   constructor(feature: string) {
     super(`${feature} requires an active subscription`);
@@ -237,7 +259,7 @@ export function isOperationalError(error: unknown): boolean {
 }
 
 // Error factory functions
-export function createScrapingError(url: string, error: unknown): ScrapingError {
+export function createScrapingError(url: string, error: unknown): AppError {
   if (error instanceof Error) {
     if (error.message.includes('timeout')) {
       return new TimeoutError(url, 30000);
@@ -250,7 +272,7 @@ export function createScrapingError(url: string, error: unknown): ScrapingError 
   return new ScrapingError(url, String(error));
 }
 
-export function createAIError(provider: string, error: unknown): AIServiceError {
+export function createAIError(provider: string, error: unknown): AppError {
   if (error instanceof Error) {
     if (error.message.includes('quota') || error.message.includes('rate limit')) {
       return new AIQuotaExceededError(provider);
