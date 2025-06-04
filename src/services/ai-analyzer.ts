@@ -17,25 +17,59 @@ import type {
   SentimentAnalysis
 } from '@/types';
 
+/**
+ * Input data structure for AI analysis operations
+ * @interface AnalysisInput
+ */
 export interface AnalysisInput {
+  /** Unique identifier of the brand being analyzed */
   brandId: string;
+  /** Display name of the brand */
   brandName: string;
+  /** Primary website URL of the brand */
   websiteUrl: string;
+  /** Extracted text content from brand's digital presence */
   textContent: string[];
+  /** Collection of brand assets (logos, images, documents) */
   assets: Array<{
     type: string;
     url: string;
     filename: string;
     alt_text?: string;
   }>;
+  /** List of known competitor brand names */
   competitors?: string[];
 }
 
+/**
+ * AI-powered brand analysis service
+ * 
+ * Provides comprehensive brand analysis using multiple AI models:
+ * - GPT-4 for visual and sentiment analysis
+ * - Claude for positioning and competitive analysis
+ * 
+ * Features:
+ * - Rate limiting per user
+ * - Cost tracking and limits
+ * - Automatic retry with exponential backoff
+ * - Result caching in database
+ * 
+ * @class AIAnalyzerService
+ * @example
+ * ```typescript
+ * const analyzer = new AIAnalyzerService(userId);
+ * const positioning = await analyzer.analyzePositioning(brandData);
+ * ```
+ */
 export class AIAnalyzerService {
   private openai: OpenAI;
   private anthropic: Anthropic;
   private userId: string;
 
+  /**
+   * Creates an instance of AIAnalyzerService
+   * @param {string} [userId='anonymous'] - User ID for rate limiting and cost tracking
+   */
   constructor(userId?: string) {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -48,6 +82,27 @@ export class AIAnalyzerService {
     this.userId = userId || 'anonymous';
   }
 
+  /**
+   * Analyzes brand positioning using Claude AI
+   * 
+   * Examines brand voice, target audience, value proposition,
+   * key messages, competitive differentiation, and personality traits.
+   * 
+   * @param {AnalysisInput} input - Brand data for analysis
+   * @returns {Promise<PositioningAnalysis>} Structured positioning analysis
+   * @throws {APIError} When rate limit exceeded or API fails
+   * 
+   * @example
+   * ```typescript
+   * const positioning = await analyzer.analyzePositioning({
+   *   brandId: '123',
+   *   brandName: 'Nike',
+   *   websiteUrl: 'https://nike.com',
+   *   textContent: ['Just Do It', 'Innovation in sports'],
+   *   assets: []
+   * });
+   * ```
+   */
   async analyzePositioning(input: AnalysisInput): Promise<PositioningAnalysis> {
     // Check rate limit
     await checkRateLimit(anthropicRateLimiter, this.userId, 'positioning analysis');
@@ -111,6 +166,16 @@ Format your response as JSON with the following structure:
     }
   }
 
+  /**
+   * Analyzes visual brand identity using GPT-4 Vision
+   * 
+   * Evaluates color palette, typography, logo design,
+   * visual style, and consistency across brand assets.
+   * 
+   * @param {AnalysisInput} input - Brand data including visual assets
+   * @returns {Promise<VisualAnalysis>} Visual identity analysis
+   * @throws {Error} When visual analysis fails
+   */
   async analyzeVisualIdentity(input: AnalysisInput): Promise<VisualAnalysis> {
     // Filter for visual assets
     const visualAssets = input.assets.filter(asset => 
@@ -167,6 +232,16 @@ Format as JSON:
     }
   }
 
+  /**
+   * Performs competitive analysis using Claude AI
+   * 
+   * Identifies direct and indirect competitors, analyzes market position,
+   * and provides SWOT analysis (Strengths, Weaknesses, Opportunities, Threats).
+   * 
+   * @param {AnalysisInput} input - Brand data with competitor information
+   * @returns {Promise<CompetitiveAnalysis>} Competitive landscape analysis
+   * @throws {Error} When competitive analysis fails
+   */
   async analyzeCompetitive(input: AnalysisInput): Promise<CompetitiveAnalysis> {
     const competitors = input.competitors || [];
     
@@ -220,6 +295,16 @@ Format as JSON:
     }
   }
 
+  /**
+   * Analyzes brand sentiment and emotional tone using GPT-4
+   * 
+   * Evaluates overall sentiment, emotional appeals, brand perception,
+   * and customer-facing messaging tone.
+   * 
+   * @param {AnalysisInput} input - Brand content for sentiment analysis
+   * @returns {Promise<SentimentAnalysis>} Sentiment and emotional analysis
+   * @throws {Error} When sentiment analysis fails
+   */
   async analyzeSentiment(input: AnalysisInput): Promise<SentimentAnalysis> {
     const prompt = `
 Analyze the sentiment and emotional tone of ${input.brandName} based on their content:
@@ -269,6 +354,22 @@ Format as JSON:
     }
   }
 
+  /**
+   * Runs all four analysis types for a brand
+   * 
+   * Executes positioning, visual, competitive, and sentiment analyses
+   * in sequence, collecting any errors that occur.
+   * 
+   * @param {string} brandId - Unique identifier of the brand
+   * @returns {Promise<Object>} Results object with all analyses and errors
+   * 
+   * @example
+   * ```typescript
+   * const results = await analyzer.runFullAnalysis('brand-123');
+   * // results.positioning, results.visual, results.competitive, results.sentiment
+   * // results.errors - array of any errors that occurred
+   * ```
+   */
   async runFullAnalysis(brandId: string): Promise<{
     positioning?: PositioningAnalysis;
     visual?: VisualAnalysis;
@@ -313,6 +414,12 @@ Format as JSON:
     return { ...results, errors };
   }
 
+  /**
+   * Prepares brand data for analysis
+   * @private
+   * @param {string} brandId - Brand identifier
+   * @returns {Promise<AnalysisInput>} Prepared analysis input
+   */
   private async prepareBrandData(brandId: string): Promise<AnalysisInput> {
     const supabase = createServerSupabase();
 
@@ -348,6 +455,14 @@ Format as JSON:
     };
   }
 
+  /**
+   * Saves analysis results to database
+   * @private
+   * @param {string} brandId - Brand identifier
+   * @param {string} type - Analysis type
+   * @param {any} results - Analysis results
+   * @param {number} confidenceScore - Confidence score (0-1)
+   */
   private async saveAnalysis(
     brandId: string,
     type: 'positioning' | 'visual' | 'competitive' | 'sentiment',
@@ -365,6 +480,12 @@ Format as JSON:
     });
   }
 
+  /**
+   * Updates brand analysis status
+   * @private
+   * @param {string} brandId - Brand identifier
+   * @param {string} status - New status
+   */
   private async updateBrandStatus(
     brandId: string,
     status: 'pending' | 'in_progress' | 'completed' | 'failed'
