@@ -1,0 +1,878 @@
+openapi: 3.0.0
+info:
+  title: Brand Audit Tool API
+  description: |
+    Comprehensive API for competitive brand analysis, web scraping, AI-powered insights, 
+    and professional presentation generation.
+  version: 1.0.0
+  contact:
+    name: Brand Audit Tool Support
+    email: support@brandaudittool.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.brandaudittool.com/v1
+    description: Production server
+  - url: http://localhost:3000/api
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Health
+    description: System health and monitoring endpoints
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Projects
+    description: Brand analysis project management
+  - name: Brands
+    description: Individual brand operations
+  - name: Analysis
+    description: AI-powered brand analysis
+  - name: Scraping
+    description: Web scraping operations
+  - name: Presentations
+    description: Presentation generation and export
+  - name: Organizations
+    description: Organization and team management
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Get system health status
+      description: |
+        Returns comprehensive health check including database, storage, 
+        AI services, and external service status.
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: System is healthy or degraded but operational
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /projects:
+    get:
+      tags:
+        - Projects
+      summary: List all projects
+      operationId: listProjects
+      parameters:
+        - name: organizationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, active, completed, archived]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /projects/{projectId}:
+    get:
+      tags:
+        - Projects
+      summary: Get project details
+      operationId: getProject
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Project details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectWithBrands'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /projects/{projectId}/bulk-scrape:
+    post:
+      tags:
+        - Scraping
+      summary: Bulk scrape all brands in project
+      operationId: bulkScrapeBrands
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config:
+                  $ref: '#/components/schemas/ScrapingConfig'
+      responses:
+        '202':
+          description: Bulk scraping started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  projectId:
+                    type: string
+                  brandsCount:
+                    type: integer
+                  estimatedTime:
+                    type: integer
+                    description: Estimated completion time in seconds
+
+  /projects/{projectId}/bulk-analyze:
+    post:
+      tags:
+        - Analysis
+      summary: Bulk analyze all brands in project
+      operationId: bulkAnalyzeBrands
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                types:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AnalysisType'
+      responses:
+        '202':
+          description: Bulk analysis started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  projectId:
+                    type: string
+                  brandsCount:
+                    type: integer
+                  analysisTypes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalysisType'
+
+  /projects/{projectId}/export:
+    get:
+      tags:
+        - Projects
+      summary: Export project data
+      operationId: exportProject
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        '200':
+          description: Export data retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectExport'
+            text/csv:
+              schema:
+                type: string
+
+  /brands/{brandId}/scrape:
+    post:
+      tags:
+        - Scraping
+      summary: Scrape individual brand
+      operationId: scrapeBrand
+      parameters:
+        - $ref: '#/components/parameters/brandId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config:
+                  $ref: '#/components/schemas/ScrapingConfig'
+      responses:
+        '202':
+          description: Scraping started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  brandId:
+                    type: string
+                  status:
+                    type: string
+
+  /analysis:
+    post:
+      tags:
+        - Analysis
+      summary: Start brand analysis
+      operationId: startAnalysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - brandId
+              properties:
+                brandId:
+                  type: string
+                  format: uuid
+                types:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AnalysisType'
+      responses:
+        '202':
+          description: Analysis started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  brandId:
+                    type: string
+                  types:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalysisType'
+                  status:
+                    type: string
+
+    get:
+      tags:
+        - Analysis
+      summary: Get analysis results
+      operationId: getAnalysisResults
+      parameters:
+        - name: brandId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Analysis results retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResults'
+
+  /presentations:
+    post:
+      tags:
+        - Presentations
+      summary: Create presentation
+      operationId: createPresentation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePresentationRequest'
+      responses:
+        '201':
+          description: Presentation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Presentation'
+
+  /presentations/{presentationId}/pdf:
+    post:
+      tags:
+        - Presentations
+      summary: Generate PDF from presentation
+      operationId: generatePresentationPDF
+      parameters:
+        - $ref: '#/components/parameters/presentationId'
+      responses:
+        '202':
+          description: PDF generation started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  presentationId:
+                    type: string
+                  status:
+                    type: string
+
+    get:
+      tags:
+        - Presentations
+      summary: Download presentation PDF
+      operationId: downloadPresentationPDF
+      parameters:
+        - $ref: '#/components/parameters/presentationId'
+      responses:
+        '200':
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: PDF not found or not ready
+
+  /organizations:
+    post:
+      tags:
+        - Organizations
+      summary: Create organization
+      operationId: createOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - slug
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9-]+$'
+      responses:
+        '201':
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+
+  /admin/stats:
+    get:
+      tags:
+        - Admin
+      summary: Get system statistics
+      operationId: getAdminStats
+      responses:
+        '200':
+          description: System statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStats'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    projectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    
+    brandId:
+      name: brandId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    
+    presentationId:
+      name: presentationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    # Health Check
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        environment:
+          type: string
+        uptime:
+          type: integer
+        checks:
+          type: object
+          properties:
+            database:
+              $ref: '#/components/schemas/HealthCheckResult'
+            storage:
+              $ref: '#/components/schemas/HealthCheckResult'
+            ai_services:
+              $ref: '#/components/schemas/HealthCheckResult'
+            external_services:
+              $ref: '#/components/schemas/HealthCheckResult'
+        metadata:
+          type: object
+
+    HealthCheckResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pass, fail, warn]
+        response_time_ms:
+          type: integer
+        message:
+          type: string
+        details:
+          type: object
+
+    # Authentication
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+        expiresIn:
+          type: integer
+
+    # Core Models
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        avatarUrl:
+          type: string
+        role:
+          type: string
+          enum: [admin, editor, viewer]
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        logoUrl:
+          type: string
+        subscriptionTier:
+          type: string
+          enum: [free, pro, enterprise]
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+        createdBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProjectWithBrands:
+      allOf:
+        - $ref: '#/components/schemas/Project'
+        - type: object
+          properties:
+            brands:
+              type: array
+              items:
+                $ref: '#/components/schemas/Brand'
+
+    Brand:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        websiteUrl:
+          type: string
+          format: uri
+        logoUrl:
+          type: string
+        industry:
+          type: string
+        description:
+          type: string
+        scrapingStatus:
+          $ref: '#/components/schemas/ProcessingStatus'
+        analysisStatus:
+          $ref: '#/components/schemas/ProcessingStatus'
+
+    # Analysis
+    AnalysisType:
+      type: string
+      enum: [positioning, visual, competitive, sentiment]
+
+    ProcessingStatus:
+      type: string
+      enum: [pending, in_progress, completed, failed]
+
+    AnalysisResults:
+      type: object
+      properties:
+        brandId:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProcessingStatus'
+        lastUpdated:
+          type: string
+          format: date-time
+        analyses:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              id:
+                type: string
+              type:
+                $ref: '#/components/schemas/AnalysisType'
+              status:
+                $ref: '#/components/schemas/ProcessingStatus'
+              results:
+                type: object
+              confidenceScore:
+                type: number
+
+    # Scraping
+    ScrapingConfig:
+      type: object
+      properties:
+        maxPages:
+          type: integer
+          default: 10
+        includeImages:
+          type: boolean
+          default: true
+        includeDocuments:
+          type: boolean
+          default: true
+        respectRobots:
+          type: boolean
+          default: true
+        delayBetweenRequests:
+          type: integer
+          default: 2000
+
+    # Presentations
+    Presentation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        template:
+          type: string
+        status:
+          type: string
+          enum: [draft, generating, completed, failed]
+        exportUrl:
+          type: string
+
+    CreatePresentationRequest:
+      type: object
+      required:
+        - projectId
+        - name
+        - template
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        template:
+          type: string
+          enum: [modern, classic, minimal, corporate]
+
+    # Requests
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+        - brands
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        brands:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - name
+              - websiteUrl
+            properties:
+              name:
+                type: string
+              websiteUrl:
+                type: string
+                format: uri
+              industry:
+                type: string
+
+    # Export
+    ProjectExport:
+      type: object
+      properties:
+        project:
+          $ref: '#/components/schemas/Project'
+        brands:
+          type: array
+          items:
+            type: object
+            allOf:
+              - $ref: '#/components/schemas/Brand'
+              - type: object
+                properties:
+                  assets:
+                    type: array
+                    items:
+                      type: object
+                  analyses:
+                    type: array
+                    items:
+                      type: object
+
+    # Admin
+    SystemStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalOrganizations:
+          type: integer
+        totalProjects:
+          type: integer
+        totalBrands:
+          type: integer
+        activeAnalyses:
+          type: integer
+        storageUsed:
+          type: integer
+        apiCalls:
+          type: object
+          properties:
+            today:
+              type: integer
+            thisMonth:
+              type: integer
+
+    # Errors
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+        statusCode:
+          type: integer
+
+    ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
