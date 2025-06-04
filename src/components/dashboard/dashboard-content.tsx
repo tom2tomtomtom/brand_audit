@@ -20,14 +20,20 @@ import { StatsCard } from './stats-card';
 import { RecentActivity } from './recent-activity';
 import { QuickActions } from './quick-actions';
 import { CreateProjectModal } from '@/components/forms/create-project-modal';
+import { NoOrganization } from '@/components/onboarding/no-organization';
 import type { Project } from '@/types';
 
 export function DashboardContent() {
-  const { user, currentOrganization } = useAuth();
+  const { user, currentOrganization, organizations } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Show no organization screen if user has no organizations
+  if (!loading && organizations.length === 0) {
+    return <NoOrganization />;
+  }
 
   useEffect(() => {
     fetchProjects();
