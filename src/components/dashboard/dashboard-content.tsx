@@ -52,9 +52,9 @@ export function DashboardContent() {
 
   const getStats = () => {
     const totalProjects = projects.length;
-    const totalBrands = projects.reduce((sum, p) => sum + (p.brands_count || 0), 0);
-    const activeProjects = projects.filter(p => p.project_status === 'active').length;
-    const completedProjects = projects.filter(p => p.project_status === 'completed').length;
+    const totalBrands = projects.reduce((sum, p) => sum + ((p as any).brands_count || 0), 0);
+    const activeProjects = projects.filter(p => (p as any).project_status === 'active').length;
+    const completedProjects = projects.filter(p => (p as any).project_status === 'completed').length;
 
     return [
       {
@@ -155,7 +155,7 @@ export function DashboardContent() {
                 ) : recentProjects.length > 0 ? (
                   <div className="space-y-4">
                     {recentProjects.map((project) => (
-                      <ProjectCard key={project.id} project={project} />
+                      <ProjectCard key={project.id} project={project as any} />
                     ))}
                   </div>
                 ) : (

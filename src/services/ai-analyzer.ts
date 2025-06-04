@@ -42,7 +42,7 @@ export class AIAnalyzerService {
     });
 
     this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey: process.env.ANTHROPIC_API_KEY || '',
     });
 
     this.userId = userId || 'anonymous';
@@ -84,19 +84,19 @@ Format your response as JSON with the following structure:
 
     try {
       const analysis = await retryWithBackoff(async () => {
-        const response = await this.anthropic.messages.create({
-          model: 'claude-3-sonnet-20240229',
-          max_tokens: 2000,
-          messages: [{ role: 'user', content: prompt }],
+        const response = await this.anthropic.completions.create({
+          model: 'claude-2',
+          max_tokens_to_sample: 2000,
+          prompt: `${Anthropic.HUMAN_PROMPT} ${prompt}${Anthropic.AI_PROMPT}`,
         });
 
-        const content = response.content[0];
-        if (content.type === 'text') {
+        const content = response.completion;
+        if (content) {
           // Track usage (estimate tokens)
-          const estimatedTokens = prompt.length / 4 + content.text.length / 4;
+          const estimatedTokens = prompt.length / 4 + content.length / 4;
           costTracker.trackAnthropicUsage(this.userId, estimatedTokens);
 
-          return JSON.parse(content.text);
+          return JSON.parse(content);
         }
 
         throw new Error('Invalid response format');
@@ -200,15 +200,15 @@ Format as JSON:
 `;
 
     try {
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: prompt }],
+      const response = await this.anthropic.completions.create({
+        model: 'claude-2',
+        max_tokens_to_sample: 2000,
+        prompt: `${Anthropic.HUMAN_PROMPT} ${prompt}${Anthropic.AI_PROMPT}`,
       });
 
-      const content = response.content[0];
-      if (content.type === 'text') {
-        const analysis = JSON.parse(content.text);
+      const content = response.completion;
+      if (content) {
+        const analysis = JSON.parse(content);
         await this.saveAnalysis(input.brandId, 'competitive', analysis, 0.75);
         return analysis;
       }

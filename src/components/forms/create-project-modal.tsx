@@ -72,7 +72,7 @@ export function CreateProjectModal({ open, onClose, onSuccess }: CreateProjectMo
         brands: validBrands.map(brand => ({
           name: brand.name.trim(),
           websiteUrl: brand.websiteUrl.trim(),
-          industry: brand.industry.trim() || undefined,
+          industry: brand.industry?.trim() || undefined,
         })),
       };
 

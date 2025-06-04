@@ -139,7 +139,7 @@ function AuthProvider({ children }: ProvidersProps) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const isNewUser = event === 'SIGNED_UP';
+        const isNewUser = event === 'SIGNED_UP' as any;
         await fetchUserData(session.user.id, isNewUser);
       } else {
         setAppUser(null);

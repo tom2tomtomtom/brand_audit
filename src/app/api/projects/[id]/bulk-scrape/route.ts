@@ -86,7 +86,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Log success
         await supabase.from('audit_logs').insert({
           user_id: user.id,
-          organization_id: project.organizations.id,
+          organization_id: (project.organizations as any).id,
           action: 'bulk_scrape_completed',
           resource_type: 'brand',
           resource_id: brand.id,
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           })
           .eq('id', brand.id);
 
-        return { brandId: brand.id, success: false, error: error.message };
+        return { brandId: brand.id, success: false, error: (error as Error).message };
       }
     });
 
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // Log bulk operation completion
       await supabase.from('audit_logs').insert({
         user_id: user.id,
-        organization_id: project.organizations.id,
+        organization_id: (project.organizations as any).id,
         action: 'bulk_scrape_finished',
         resource_type: 'project',
         resource_id: projectId,

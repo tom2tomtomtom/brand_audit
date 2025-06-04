@@ -114,10 +114,10 @@ export async function GET(request: NextRequest) {
 
     const organizations = orgData?.map(item => ({
       ...item.organizations,
-      logoUrl: item.organizations.logo_url,
-      subscriptionTier: item.organizations.subscription_tier,
-      createdAt: item.organizations.created_at,
-      updatedAt: item.organizations.updated_at,
+      logoUrl: (item.organizations as any).logo_url,
+      subscriptionTier: (item.organizations as any).subscription_tier,
+      createdAt: (item.organizations as any).created_at,
+      updatedAt: (item.organizations as any).updated_at,
       memberRole: item.role,
     })) || [];
 

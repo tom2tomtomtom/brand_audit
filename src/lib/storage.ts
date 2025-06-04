@@ -24,7 +24,7 @@ export const uploadFile = async (
     .from(bucket)
     .upload(path, file, {
       cacheControl: options?.cacheControl || '3600',
-      contentType: options?.contentType,
+      contentType: options?.contentType || 'application/octet-stream',
       upsert: options?.upsert || false,
     });
 

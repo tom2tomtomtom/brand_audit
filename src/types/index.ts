@@ -175,11 +175,11 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 // Form types
 export interface CreateProjectForm {
   name: string;
-  description?: string;
+  description?: string | undefined;
   brands: {
     name: string;
     websiteUrl: string;
-    industry?: string;
+    industry?: string | undefined;
   }[];
 }
 

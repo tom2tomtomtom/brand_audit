@@ -306,7 +306,7 @@ export class PresentationGeneratorService {
       .filter(Boolean);
 
     if (visualData.length > 0) {
-      const avgConsistency = visualData.reduce((sum, v) => sum + (v.consistencyScore || 0), 0) / visualData.length;
+      const avgConsistency = visualData.reduce((sum, v) => sum + (v?.consistencyScore || 0), 0) / visualData.length;
       insights.push(`Average visual consistency score: ${avgConsistency.toFixed(1)}%`);
     }
 
@@ -331,7 +331,7 @@ export class PresentationGeneratorService {
         recommendations.push(`${brand.name}: Improve visual consistency across touchpoints`);
       }
 
-      if (brand.analyses.competitive?.weaknesses?.length > 0) {
+      if (brand.analyses.competitive?.weaknesses?.length && brand.analyses.competitive.weaknesses.length > 0) {
         recommendations.push(`${brand.name}: Address competitive weaknesses in positioning`);
       }
 
