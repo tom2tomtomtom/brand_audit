@@ -185,7 +185,6 @@ export async function optimizeImage(
     case 'avif':
       pipeline = pipeline.avif({
         quality: options.quality || 80,
-        speed: 5,
       });
       break;
   }
@@ -205,8 +204,6 @@ export async function optimizeImage(
       format: info.format,
       size: outputBuffer.length,
       hasAlpha: info.channels === 4,
-      density: info.density,
-      colorSpace: info.space,
     },
     savedBytes,
     compressionRatio,
@@ -288,15 +285,19 @@ export async function extractDominantColors(
   
   // Simple color quantization
   const colorMap = new Map<string, number>();
-  const pixelCount = info.width * info.height;
+  // const pixelCount = info.width * info.height; // Unused for now
   const channels = info.channels;
-  
+
+  if (!data || data.length === 0) {
+    return ['#000000']; // Return black as fallback
+  }
+
   for (let i = 0; i < data.length; i += channels) {
-    const r = Math.floor(data[i] / 16) * 16;
-    const g = Math.floor(data[i + 1] / 16) * 16;
-    const b = Math.floor(data[i + 2] / 16) * 16;
+    const r = Math.floor((data[i] || 0) / 16) * 16;
+    const g = Math.floor((data[i + 1] || 0) / 16) * 16;
+    const b = Math.floor((data[i + 2] || 0) / 16) * 16;
     const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    
+
     colorMap.set(hex, (colorMap.get(hex) || 0) + 1);
   }
   
@@ -314,12 +315,12 @@ export async function extractDominantColors(
  * @returns {Promise<string>} Base64 encoded blur hash
  */
 export async function generateBlurHash(inputBuffer: Buffer): Promise<string> {
-  const { data } = await sharp(inputBuffer)
+  const data = await sharp(inputBuffer)
     .resize(20, 20, { fit: 'cover' })
     .blur(5)
     .jpeg({ quality: 50 })
     .toBuffer();
-  
+
   return `data:image/jpeg;base64,${data.toString('base64')}`;
 }
 
@@ -344,9 +345,9 @@ export async function validateImage(inputBuffer: Buffer): Promise<ImageMetadata>
       format: metadata.format || 'unknown',
       size: inputBuffer.length,
       hasAlpha: metadata.channels === 4,
-      density: metadata.density,
-      colorSpace: metadata.space,
-      orientation: metadata.orientation,
+      density: metadata.density || 72,
+      colorSpace: metadata.space || 'srgb',
+      orientation: metadata.orientation || 1,
     };
   } catch (error) {
     throw new Error(`Invalid image: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -364,7 +365,7 @@ export async function convertImageFormat(
   inputBuffer: Buffer,
   targetFormat: 'jpeg' | 'png' | 'webp' | 'avif'
 ): Promise<Buffer> {
-  let pipeline = sharp(inputBuffer);
+  const pipeline = sharp(inputBuffer);
   
   switch (targetFormat) {
     case 'jpeg':

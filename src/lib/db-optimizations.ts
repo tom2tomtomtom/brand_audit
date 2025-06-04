@@ -1,4 +1,3 @@
-import { SupabaseClient } from '@supabase/supabase-js';
 import { createServerSupabase } from './supabase-server';
 
 /**
@@ -65,23 +64,20 @@ export async function getProjectsOptimized(
   options: ProjectQueryOptions = {}
 ): Promise<any[]> {
   const supabase = createServerSupabase();
-  
-  let query = supabase
-    .from('projects')
-    .select(`
-      id,
-      name,
-      description,
-      status,
-      created_at,
-      updated_at,
-      created_by
-    `)
-    .eq('organization_id', organizationId);
+
+  let selectQuery = `
+    id,
+    name,
+    description,
+    status,
+    created_at,
+    updated_at,
+    created_by
+  `;
 
   // Add brand data with counts
   if (options.includeBrands) {
-    query = query.select(`
+    selectQuery = `
       *,
       brands!inner (
         id,
@@ -89,9 +85,8 @@ export async function getProjectsOptimized(
         website_url,
         industry,
         scraping_status,
-        analysis_status,
-        ${options.includeAssetCounts ? '_asset_count:assets(count)' : ''},
-        ${options.includeAnalyses ? `analyses (
+        analysis_status
+        ${options.includeAnalyses ? `,analyses (
           id,
           type,
           status,
@@ -99,8 +94,13 @@ export async function getProjectsOptimized(
           created_at
         )` : ''}
       )
-    `);
+    `;
   }
+
+  let query = supabase
+    .from('projects')
+    .select(selectQuery)
+    .eq('organization_id', organizationId);
 
   // Apply filters
   if (options.status) {
@@ -214,7 +214,7 @@ export async function getBrandsBatchOptimized(
 ): Promise<any[]> {
   const supabase = createServerSupabase();
   
-  let query = supabase
+  const query = supabase
     .from('brands')
     .select(`
       id,

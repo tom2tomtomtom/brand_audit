@@ -64,8 +64,9 @@ export function useLazyImage(
     if (!imgRef.current) return;
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !isLoaded && !imgSrc) {
+      (entries) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting && !isLoaded && !imgSrc) {
           loadImage();
         }
       },
@@ -202,8 +203,9 @@ export function useLazyData<T = any>(
     if (!elementRef.current) return;
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !isLoaded && !isLoading) {
+      (entries) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting && !isLoaded && !isLoading) {
           loadData();
         }
       },
@@ -309,7 +311,7 @@ export function LazyComponent<T = any>({
     return <>{fallback || <div className="animate-pulse bg-gray-200 rounded h-32" />}</>;
   }
 
-  return <Component {...props} />;
+  return <Component {...(props as any)} />;
 }
 
 /**

@@ -4,11 +4,11 @@
  */
 
 import { NextConfig } from 'next';
-import CompressionPlugin from 'compression-webpack-plugin';
-import TerserPlugin from 'terser-webpack-plugin';
-import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
-import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
-import LodashModuleReplacementPlugin from 'lodash-webpack-plugin';
+// import CompressionPlugin from 'compression-webpack-plugin';
+// import TerserPlugin from 'terser-webpack-plugin';
+// import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
+// import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
+// import LodashModuleReplacementPlugin from 'lodash-webpack-plugin';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const isAnalyze = process.env.ANALYZE === 'true';
@@ -55,42 +55,9 @@ export const optimizationConfig: Partial<NextConfig> = {
       ...config.optimization,
       minimize: !isDev,
       minimizer: [
-        new TerserPlugin({
-          terserOptions: {
-            parse: {
-              ecma: 8,
-            },
-            compress: {
-              ecma: 5,
-              warnings: false,
-              comparisons: false,
-              inline: 2,
-              drop_console: !isDev,
-              drop_debugger: !isDev,
-              pure_funcs: ['console.log', 'console.info', 'console.debug'],
-            },
-            mangle: {
-              safari10: true,
-            },
-            output: {
-              ecma: 5,
-              comments: false,
-              ascii_only: true,
-            },
-          },
-          parallel: true,
-        }),
-        new CssMinimizerPlugin({
-          minimizerOptions: {
-            preset: [
-              'default',
-              {
-                discardComments: { removeAll: true },
-                minifyFontValues: { removeQuotes: false },
-              },
-            ],
-          },
-        }),
+        // TerserPlugin and CssMinimizerPlugin are handled by Next.js by default
+        // new TerserPlugin({...}),
+        // new CssMinimizerPlugin({...}),
       ],
       splitChunks: {
         chunks: 'all',
@@ -151,50 +118,19 @@ export const optimizationConfig: Partial<NextConfig> = {
 
     // Add plugins
     if (!isServer) {
-      // Compression plugin for gzip/brotli
-      config.plugins.push(
-        new CompressionPlugin({
-          filename: '[path][base].gz',
-          algorithm: 'gzip',
-          test: /\.(js|css|html|svg)$/,
-          threshold: 8192,
-          minRatio: 0.8,
-        })
-      );
+      // Plugins are commented out to avoid build issues
+      // Compression and optimization are handled by Next.js and deployment platform
 
-      config.plugins.push(
-        new CompressionPlugin({
-          filename: '[path][base].br',
-          algorithm: 'brotliCompress',
-          test: /\.(js|css|html|svg)$/,
-          threshold: 8192,
-          minRatio: 0.8,
-        })
-      );
-
-      // Lodash optimization
-      config.plugins.push(
-        new LodashModuleReplacementPlugin({
-          collections: true,
-          shorthands: true,
-          cloning: true,
-          caching: true,
-          memoizing: true,
-          flattening: true,
-          paths: true,
-        })
-      );
-
-      // Bundle analyzer in analyze mode
-      if (isAnalyze) {
-        config.plugins.push(
-          new BundleAnalyzerPlugin({
-            analyzerMode: 'static',
-            reportFilename: './analyze.html',
-            openAnalyzer: true,
-          })
-        );
-      }
+      // Bundle analyzer in analyze mode (optional)
+      // if (isAnalyze) {
+      //   config.plugins.push(
+      //     new BundleAnalyzerPlugin({
+      //       analyzerMode: 'static',
+      //       reportFilename: './analyze.html',
+      //       openAnalyzer: true,
+      //     })
+      //   );
+      // }
     }
 
     // Module resolution optimizations

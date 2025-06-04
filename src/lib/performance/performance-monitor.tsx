@@ -127,7 +127,7 @@ export class PerformanceMonitor {
       value,
       unit,
       timestamp: Date.now(),
-      tags,
+      tags: tags || {},
     };
 
     if (!this.metrics.has(name)) {
@@ -203,7 +203,7 @@ export class PerformanceMonitor {
         
         // Map to appropriate metric category
         if (['lcp', 'fid', 'cls', 'fcp', 'ttfb'].includes(name)) {
-          report.metrics[name as keyof typeof report.metrics] = avg;
+          (report.metrics as any)[name] = avg;
         } else if (name.startsWith('api_')) {
           if (!report.metrics.apiResponseTime) {
             report.metrics.apiResponseTime = {};

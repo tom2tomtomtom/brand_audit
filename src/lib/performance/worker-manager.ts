@@ -3,6 +3,8 @@
  * Offloads heavy processing to Web Workers for better performance
  */
 
+import { useCallback } from 'react';
+
 interface WorkerTask {
   id: string;
   type: string;

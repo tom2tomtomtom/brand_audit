@@ -10,6 +10,14 @@ const nextConfig = {
   poweredByHeader: false,
   generateEtags: true,
   swcMinify: true,
+
+  // ESLint configuration for build
+  eslint: {
+    // Only run ESLint on these directories during build
+    dirs: ['src'],
+    // Ignore ESLint errors during build (warnings will still show)
+    ignoreDuringBuilds: false,
+  },
   
   // Compiler optimizations
   compiler: {

@@ -9,7 +9,6 @@
  * @module CacheLayer
  */
 
-import { LRUCache } from 'lru-cache';
 import crypto from 'crypto';
 
 /**
@@ -46,7 +45,8 @@ export interface CacheStats {
  * @template T - Type of cached values
  */
 export class CacheManager<T = any> {
-  private cache: LRUCache<string, T>;
+  private cache: Map<string, { value: T; expiry: number }>;
+  private config: CacheConfig;
   private stats = {
     hits: 0,
     misses: 0,
@@ -55,12 +55,11 @@ export class CacheManager<T = any> {
   };
 
   constructor(config: CacheConfig) {
-    this.cache = new LRUCache<string, T>({
-      max: config.max,
-      ttl: config.ttl,
-      updateAgeOnGet: config.updateAgeOnGet ?? true,
-      updateAgeOnHas: config.updateAgeOnHas ?? false,
-    });
+    this.cache = new Map();
+    this.config = config;
+
+    // Clean up expired entries periodically
+    setInterval(() => this.cleanup(), 60000); // Every minute
   }
 
   /**
@@ -69,13 +68,17 @@ export class CacheManager<T = any> {
    * @returns {T | undefined} Cached value or undefined
    */
   get(key: string): T | undefined {
-    const value = this.cache.get(key);
-    if (value !== undefined) {
+    const entry = this.cache.get(key);
+    if (entry && entry.expiry > Date.now()) {
       this.stats.hits++;
+      return entry.value;
     } else {
+      if (entry) {
+        this.cache.delete(key); // Remove expired entry
+      }
       this.stats.misses++;
+      return undefined;
     }
-    return value;
   }
 
   /**
@@ -85,9 +88,17 @@ export class CacheManager<T = any> {
    * @param {number} [ttl] - Optional TTL override in milliseconds
    */
   set(key: string, value: T, ttl?: number): void {
-    const options = ttl ? { ttl } : undefined;
-    this.cache.set(key, value, options);
+    const expiry = Date.now() + (ttl || this.config.ttl);
+    this.cache.set(key, { value, expiry });
     this.stats.sets++;
+
+    // Enforce max size
+    if (this.cache.size > this.config.max) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey) {
+        this.cache.delete(firstKey);
+      }
+    }
   }
 
   /**
@@ -96,7 +107,15 @@ export class CacheManager<T = any> {
    * @returns {boolean} True if key exists
    */
   has(key: string): boolean {
-    return this.cache.has(key);
+    const entry = this.cache.get(key);
+    if (entry && entry.expiry > Date.now()) {
+      return true;
+    } else {
+      if (entry) {
+        this.cache.delete(key); // Remove expired entry
+      }
+      return false;
+    }
   }
 
   /**
@@ -120,6 +139,22 @@ export class CacheManager<T = any> {
   }
 
   /**
+   * Clean up expired entries
+   */
+  private cleanup(): void {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+
+    this.cache.forEach((entry, key) => {
+      if (entry.expiry <= now) {
+        keysToDelete.push(key);
+      }
+    });
+
+    keysToDelete.forEach(key => this.cache.delete(key));
+  }
+
+  /**
    * Get cache statistics
    * @returns {CacheStats} Cache statistics
    */
@@ -129,7 +164,7 @@ export class CacheManager<T = any> {
       ...this.stats,
       hitRate: Math.round(hitRate * 100) / 100,
       size: this.cache.size,
-      maxSize: this.cache.max,
+      maxSize: this.config.max,
     };
   }
 

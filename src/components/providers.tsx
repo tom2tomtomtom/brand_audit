@@ -151,7 +151,7 @@ function AuthProvider({ children }: ProvidersProps) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchUserData]);
 
   const value = {
     user,

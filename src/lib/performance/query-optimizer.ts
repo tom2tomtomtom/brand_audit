@@ -29,7 +29,7 @@ export class QueryOptimizer {
   private queryMetrics: Map<string, { count: number; totalTime: number }>;
 
   constructor() {
-    this.cache = new CacheManager();
+    this.cache = new CacheManager({ max: 1000, ttl: 300000 }); // 5 minutes TTL
     this.batchQueue = new Map();
     this.batchTimers = new Map();
     this.queryMetrics = new Map();
@@ -49,7 +49,7 @@ export class QueryOptimizer {
       // Check cache first
       if (options.cache) {
         const cacheKey = this.getCacheKey(table, filters, options.select);
-        const cached = await this.cache.get<T>(cacheKey);
+        const cached = this.cache.get(cacheKey) as T;
         if (cached) {
           this.recordMetric(table, performance.now() - startTime);
           return cached;
@@ -228,13 +228,15 @@ export class QueryOptimizer {
     });
 
     // Build OR query
-    let query = supabase.from(table).select(group[0].options.select || '*');
+    let query = supabase.from(table).select(group[0]?.options.select || '*');
 
     if (filterKeys.size === 1 && group.every(q => Object.keys(q.filters).length === 1)) {
       // Simple case: single filter key with multiple values
       const filterKey = Array.from(filterKeys)[0];
-      const values = group.map(q => q.filters[filterKey]);
-      query = query.in(filterKey, values);
+      if (filterKey) {
+        const values = group.map(q => q.filters[filterKey]);
+        query = query.in(filterKey, values);
+      }
     } else {
       // Complex case: build OR conditions
       const orConditions = group.map(q => {
@@ -251,8 +253,8 @@ export class QueryOptimizer {
 
     // Map results back to original queries
     return group.map(query => {
-      return data?.find(item => 
-        Object.entries(query.filters).every(([key, value]) => item[key] === value)
+      return data?.find(item =>
+        Object.entries(query.filters).every(([key, value]) => (item as any)[key] === value)
       );
     });
   }
@@ -314,12 +316,15 @@ export class QueryOptimizer {
         groups.set(key, grouped);
       }
 
-      const group = groups.get(key)!;
-      Object.entries(filters).forEach(([k, v]) => {
-        if (!group[k].includes(v)) {
-          group[k].push(v);
-        }
-      });
+      const group = groups.get(key);
+      if (group) {
+        Object.entries(filters).forEach(([k, v]) => {
+          if (!group[k]?.includes(v)) {
+            group[k] = group[k] || [];
+            group[k].push(v);
+          }
+        });
+      }
     });
 
     return Array.from(groups.values());

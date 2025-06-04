@@ -176,9 +176,9 @@ export function validateQuery<T>(schema: z.ZodSchema<T>) {
       // Convert string values to appropriate types
       Object.keys(params).forEach(key => {
         const value = params[key];
-        if (value === 'true') params[key] = true;
-        else if (value === 'false') params[key] = false;
-        else if (!isNaN(Number(value)) && value !== '') params[key] = Number(value);
+        if (value === 'true') (params as any)[key] = true;
+        else if (value === 'false') (params as any)[key] = false;
+        else if (!isNaN(Number(value)) && value !== '') (params as any)[key] = Number(value);
       });
       
       return schema.parse(params);

@@ -65,7 +65,7 @@ export class RequestBatcher {
         method,
         url,
         data,
-        headers,
+        headers: headers || {},
         resolve,
         reject,
         timestamp: Date.now(),
