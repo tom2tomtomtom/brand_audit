@@ -89,22 +89,48 @@ export class BrandScraperService {
       ...config,
     };
     this.visualAnalyzer = new VisualBrandAnalyzer();
+    
+    // Check if we're in a serverless environment
+    if (this.isServerlessEnvironment()) {
+      console.warn('Running in serverless environment - Puppeteer may have limited functionality');
+    }
+  }
+
+  private isServerlessEnvironment(): boolean {
+    return !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL);
   }
 
   async initialize(): Promise<void> {
     if (!this.browser) {
-      this.browser = await puppeteer.launch({
-        headless: 'new',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu',
-        ],
-      });
+      try {
+        // Enhanced Puppeteer config for serverless environments
+        this.browser = await puppeteer.launch({
+          headless: 'new',
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--single-process', // Critical for serverless
+            '--no-default-browser-check',
+            '--disable-default-apps'
+          ],
+          timeout: 30000, // 30 second timeout
+          protocolTimeout: 30000,
+        });
+      } catch (error) {
+        console.error('Failed to initialize Puppeteer:', error);
+        throw new ScrapingError(
+          'browser-initialization',
+          'BROWSER_INIT_FAILED',
+          error instanceof Error ? error : new Error(String(error))
+        );
+      }
     }
   }
 

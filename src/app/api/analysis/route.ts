@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     // Start analysis (run in background)
     if (types && types.length > 0) {
       // Run specific analyses
-      Promise.all(
+      const analysisPromise = Promise.all(
         types.map(async (type) => {
           try {
             const input = await analyzer['prepareBrandData'](brandId);
@@ -72,66 +72,94 @@ export async function POST(request: NextRequest) {
           }
         })
       ).then(async (results) => {
-        // Log completion
-        await supabase.from('audit_logs').insert({
-          user_id: user.id,
-          organization_id: brand.projects.organization_id,
-          action: 'analysis_completed',
-          resource_type: 'brand',
-          resource_id: brandId,
-          metadata: {
-            types,
-            results_count: results.length,
-          },
-        });
-      }).catch(async (error) => {
-        console.error('Analysis failed:', error);
-        
-        // Log failure
-        await supabase.from('audit_logs').insert({
-          user_id: user.id,
-          organization_id: brand.projects.organization_id,
-          action: 'analysis_failed',
-          resource_type: 'brand',
-          resource_id: brandId,
-          metadata: {
-            error: error.message,
-            types,
-          },
-        });
-      });
-    } else {
-      // Run full analysis
-      analyzer.runFullAnalysis(brandId)
-        .then(async (result) => {
+        try {
           // Log completion
           await supabase.from('audit_logs').insert({
             user_id: user.id,
             organization_id: brand.projects.organization_id,
-            action: 'full_analysis_completed',
+            action: 'analysis_completed',
             resource_type: 'brand',
             resource_id: brandId,
             metadata: {
-              errors: result.errors,
-              completed_analyses: Object.keys(result).filter(k => k !== 'errors').length,
+              types,
+              results_count: results.length,
             },
           });
-        })
-        .catch(async (error) => {
-          console.error('Full analysis failed:', error);
-          
+        } catch (logError) {
+          console.error('Failed to log analysis completion:', logError);
+        }
+      }).catch(async (error) => {
+        console.error('Analysis failed:', error);
+        
+        try {
           // Log failure
           await supabase.from('audit_logs').insert({
             user_id: user.id,
             organization_id: brand.projects.organization_id,
-            action: 'full_analysis_failed',
+            action: 'analysis_failed',
             resource_type: 'brand',
             resource_id: brandId,
             metadata: {
-              error: error.message,
+              error: error.message || 'Unknown analysis error',
+              errorType: error.name || 'Error',
+              types,
             },
           });
+        } catch (logError) {
+          console.error('Failed to log analysis failure:', logError);
+        }
+      });
+
+      // Add global error handler for unhandled promise rejections
+      analysisPromise.catch((error) => {
+        console.error('Unhandled analysis error:', error);
+      });
+    } else {
+      // Run full analysis
+      const fullAnalysisPromise = analyzer.runFullAnalysis(brandId)
+        .then(async (result) => {
+          try {
+            // Log completion
+            await supabase.from('audit_logs').insert({
+              user_id: user.id,
+              organization_id: brand.projects.organization_id,
+              action: 'full_analysis_completed',
+              resource_type: 'brand',
+              resource_id: brandId,
+              metadata: {
+                errors: result.errors,
+                completed_analyses: Object.keys(result).filter(k => k !== 'errors').length,
+              },
+            });
+          } catch (logError) {
+            console.error('Failed to log full analysis completion:', logError);
+          }
+        })
+        .catch(async (error) => {
+          console.error('Full analysis failed:', error);
+          
+          try {
+            // Log failure
+            await supabase.from('audit_logs').insert({
+              user_id: user.id,
+              organization_id: brand.projects.organization_id,
+              action: 'full_analysis_failed',
+              resource_type: 'brand',
+              resource_id: brandId,
+              metadata: {
+                error: error.message || 'Unknown full analysis error',
+                errorType: error.name || 'Error',
+              },
+            });
+          } catch (logError) {
+            console.error('Failed to log full analysis failure:', logError);
+          }
         });
+
+      // Add global error handler for unhandled promise rejections
+      fullAnalysisPromise.catch((error) => {
+        console.error('Unhandled full analysis error:', error);
+      });
     }
 
     return NextResponse.json({ 

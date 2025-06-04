@@ -54,40 +54,58 @@ export async function POST(request: NextRequest) {
     // Initialize scraper
     const scraper = new BrandScraperService(config);
 
-    // Start scraping (run in background)
-    scraper.scrapeBrand(brandId, brand.website_url)
+    // Start scraping (run in background with proper error handling)
+    const scrapingPromise = scraper.scrapeBrand(brandId, brand.website_url)
       .then(async (result) => {
-        // Log completion
-        await supabase.from('audit_logs').insert({
-          user_id: user.id,
-          organization_id: brand.projects.organization_id,
-          action: 'scrape_completed',
-          resource_type: 'brand',
-          resource_id: brandId,
-          metadata: {
-            assets_found: result.assets.length,
-            errors: result.errors,
-          },
-        });
+        try {
+          // Log completion
+          await supabase.from('audit_logs').insert({
+            user_id: user.id,
+            organization_id: brand.projects.organization_id,
+            action: 'scrape_completed',
+            resource_type: 'brand',
+            resource_id: brandId,
+            metadata: {
+              assets_found: result.assets.length,
+              errors: result.errors,
+            },
+          });
+        } catch (logError) {
+          console.error('Failed to log scraping completion:', logError);
+        }
       })
       .catch(async (error) => {
         console.error('Scraping failed:', error);
         
-        // Log failure
-        await supabase.from('audit_logs').insert({
-          user_id: user.id,
-          organization_id: brand.projects.organization_id,
-          action: 'scrape_failed',
-          resource_type: 'brand',
-          resource_id: brandId,
-          metadata: {
-            error: error.message,
-          },
-        });
+        try {
+          // Log failure
+          await supabase.from('audit_logs').insert({
+            user_id: user.id,
+            organization_id: brand.projects.organization_id,
+            action: 'scrape_failed',
+            resource_type: 'brand',
+            resource_id: brandId,
+            metadata: {
+              error: error.message || 'Unknown scraping error',
+              errorType: error.name || 'Error',
+            },
+          });
+        } catch (logError) {
+          console.error('Failed to log scraping failure:', logError);
+        }
       })
-      .finally(() => {
-        scraper.cleanup();
+      .finally(async () => {
+        try {
+          await scraper.cleanup();
+        } catch (cleanupError) {
+          console.error('Failed to cleanup scraper:', cleanupError);
+        }
       });
+
+    // Add global error handler for unhandled promise rejections
+    scrapingPromise.catch((error) => {
+      console.error('Unhandled scraping error:', error);
+    });
 
     return NextResponse.json({ 
       message: 'Scraping started',
