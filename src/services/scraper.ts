@@ -4,6 +4,14 @@ import { createServerSupabase } from '@/lib/supabase-server';
 import { uploadFile } from '@/lib/storage';
 import { extractDomain, sleep } from '@/lib/utils';
 import { VisualBrandAnalyzer } from './visual-brand-analyzer';
+import {
+  ScrapingError,
+  TimeoutError,
+  NetworkError,
+  RobotsBlockedError,
+  createScrapingError,
+  logError
+} from '@/lib/errors';
 
 export interface ScrapingConfig {
   maxPages: number;
@@ -102,8 +110,19 @@ export class BrandScraperService {
 
   async cleanup(): Promise<void> {
     if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
+      try {
+        // Add timeout to prevent hanging
+        await Promise.race([
+          this.browser.close(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new TimeoutError('browser-cleanup', 5000)), 5000)
+          )
+        ]);
+      } catch (error) {
+        logError(error, { context: 'browser-cleanup' });
+      } finally {
+        this.browser = null;
+      }
     }
   }
 
@@ -112,16 +131,28 @@ export class BrandScraperService {
 
     try {
       const robotsUrl = new URL('/robots.txt', baseUrl).toString();
-      const response = await fetch(robotsUrl);
-      
+      const response = await fetch(robotsUrl, {
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+
       if (!response.ok) return true; // No robots.txt, allow scraping
-      
+
       const robotsTxt = await response.text();
       const robots = robotsParser(robotsUrl, robotsTxt);
-      
-      return robots.isAllowed(baseUrl, userAgent) ?? true;
+
+      const isAllowed = robots.isAllowed(baseUrl, userAgent) ?? true;
+
+      if (!isAllowed) {
+        throw new RobotsBlockedError(baseUrl);
+      }
+
+      return isAllowed;
     } catch (error) {
-      console.warn('Error checking robots.txt:', error);
+      if (error instanceof RobotsBlockedError) {
+        throw error; // Re-throw robots blocking error
+      }
+
+      logError(error, { context: 'robots-txt-check', baseUrl });
       return true; // Default to allowing if check fails
     }
   }
@@ -195,10 +226,16 @@ export class BrandScraperService {
       await this.initialize();
 
       // Check robots.txt
-      const canScrape = await this.checkRobotsTxt(websiteUrl);
-      if (!canScrape) {
-        result.errors.push('Scraping not allowed by robots.txt');
-        return result;
+      try {
+        await this.checkRobotsTxt(websiteUrl);
+      } catch (error) {
+        if (error instanceof RobotsBlockedError) {
+          result.errors.push(error.message);
+          await this.updateBrandStatus(brandId, 'failed');
+          return result;
+        }
+        // Log but continue for other robots.txt errors
+        logError(error, { context: 'robots-check', websiteUrl });
       }
 
       // Update brand status
@@ -222,7 +259,9 @@ export class BrandScraperService {
           result.assets.push(...pageResult.assets);
           result.textContent.push(...pageResult.textContent);
         } catch (error) {
-          result.errors.push(`Error scraping ${url}: ${error}`);
+          const scrapingError = createScrapingError(url, error);
+          result.errors.push(scrapingError.message);
+          logError(scrapingError, { context: 'page-scraping', url });
         }
       }
 
@@ -233,7 +272,14 @@ export class BrandScraperService {
       await this.updateBrandStatus(brandId, 'completed');
 
     } catch (error) {
-      result.errors.push(`Scraping failed: ${error}`);
+      // Use a fallback URL if websiteUrl is not in scope
+      const url = 'unknown-url';
+      const scrapingError = createScrapingError(url, error);
+      result.errors.push(scrapingError.message);
+      logError(scrapingError, {
+        context: 'brand-scraping',
+        brandId
+      });
       await this.updateBrandStatus(brandId, 'failed');
     }
 
