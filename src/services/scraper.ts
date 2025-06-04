@@ -3,6 +3,7 @@ import robotsParser from 'robots-parser';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { uploadFile } from '@/lib/storage';
 import { extractDomain, sleep } from '@/lib/utils';
+import { VisualBrandAnalyzer } from './visual-brand-analyzer';
 
 export interface ScrapingConfig {
   maxPages: number;
@@ -21,10 +22,40 @@ export interface ScrapedAsset {
   context?: string;
 }
 
+export interface VisualBrandData {
+  logos: {
+    primary?: string;
+    variations: string[];
+    favicon?: string;
+  };
+  colorPalette: {
+    primary: string[];
+    secondary: string[];
+    accent: string[];
+    dominantColor: string;
+  };
+  typography: {
+    headingFonts: string[];
+    bodyFonts: string[];
+    fontPairings: string[];
+  };
+  visualStyle: {
+    mood: string;
+    personality: string[];
+    designTrends: string[];
+  };
+  screenshots: {
+    homepage: string;
+    keyPages: string[];
+    mobile: string[];
+  };
+}
+
 export interface ScrapingResult {
   brandId: string;
   assets: ScrapedAsset[];
   textContent: string[];
+  visualData: VisualBrandData;
   metadata: {
     title: string;
     description: string;
@@ -37,6 +68,7 @@ export interface ScrapingResult {
 export class BrandScraperService {
   private browser: Browser | null = null;
   private config: ScrapingConfig;
+  private visualAnalyzer: VisualBrandAnalyzer;
 
   constructor(config: Partial<ScrapingConfig> = {}) {
     this.config = {
@@ -48,6 +80,7 @@ export class BrandScraperService {
       maxConcurrent: 3,
       ...config,
     };
+    this.visualAnalyzer = new VisualBrandAnalyzer();
   }
 
   async initialize(): Promise<void> {
@@ -101,6 +134,32 @@ export class BrandScraperService {
       brandId,
       assets: [],
       textContent: [],
+      visualData: {
+        logos: {
+          variations: [],
+        },
+        colorPalette: {
+          primary: [],
+          secondary: [],
+          accent: [],
+          dominantColor: '#000000',
+        },
+        typography: {
+          headingFonts: [],
+          bodyFonts: [],
+          fontPairings: [],
+        },
+        visualStyle: {
+          mood: '',
+          personality: [],
+          designTrends: [],
+        },
+        screenshots: {
+          homepage: '',
+          keyPages: [],
+          mobile: [],
+        },
+      },
       metadata: {
         title: '',
         description: '',
@@ -145,11 +204,12 @@ export class BrandScraperService {
       // Update brand status
       await this.updateBrandStatus(brandId, 'in_progress');
 
-      // Scrape main page
-      const mainPageResult = await this.scrapePage(websiteUrl);
+      // Scrape main page with visual analysis
+      const mainPageResult = await this.scrapePageWithVisuals(websiteUrl);
       result.assets.push(...mainPageResult.assets);
       result.textContent.push(...mainPageResult.textContent);
       result.metadata = { ...result.metadata, ...mainPageResult.metadata };
+      result.visualData = mainPageResult.visualData;
 
       // Find and scrape additional pages
       const additionalUrls = this.findAdditionalUrls(mainPageResult.links, websiteUrl);
@@ -178,6 +238,146 @@ export class BrandScraperService {
     }
 
     return result;
+  }
+
+  private async scrapePageWithVisuals(url: string): Promise<{
+    assets: ScrapedAsset[];
+    textContent: string[];
+    metadata: any;
+    links: string[];
+    visualData: VisualBrandData;
+  }> {
+    if (!this.browser) throw new Error('Browser not initialized');
+
+    const page = await this.browser.newPage();
+
+    try {
+      // Set user agent and viewport
+      await page.setUserAgent('Mozilla/5.0 (compatible; BrandAuditBot/1.0)');
+      await page.setViewport({ width: 1920, height: 1080 });
+
+      // Navigate to page
+      await page.goto(url, {
+        waitUntil: 'networkidle2',
+        timeout: 30000
+      });
+
+      // Wait for dynamic content
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Perform visual analysis
+      const visualData = await this.visualAnalyzer.analyzeVisualBrand(page, url);
+
+      // Extract regular page content
+      const content = await page.evaluate(() => {
+        const assets: ScrapedAsset[] = [];
+        const textContent: string[] = [];
+        const links: string[] = [];
+
+        // Extract images
+        document.querySelectorAll('img').forEach(img => {
+          const src = img.src || img.getAttribute('data-src');
+          if (src && src.startsWith('http')) {
+            assets.push({
+              type: 'image',
+              url: src,
+              filename: src.split('/').pop() || 'image',
+              alt: img.alt || '',
+              context: img.closest('section')?.className || '',
+            });
+          }
+        });
+
+        // Extract logos (common selectors)
+        const logoSelectors = [
+          '.logo img',
+          '.brand img',
+          '.header img',
+          '[class*="logo"] img',
+          '[id*="logo"] img',
+        ];
+
+        logoSelectors.forEach(selector => {
+          document.querySelectorAll(selector).forEach(img => {
+            const src = (img as HTMLImageElement).src;
+            if (src && src.startsWith('http')) {
+              assets.push({
+                type: 'logo',
+                url: src,
+                filename: src.split('/').pop() || 'logo',
+                alt: (img as HTMLImageElement).alt || '',
+                context: 'logo',
+              });
+            }
+          });
+        });
+
+        // Extract documents
+        document.querySelectorAll('a[href]').forEach(link => {
+          const href = (link as HTMLAnchorElement).href;
+          if (href && (href.includes('.pdf') || href.includes('.doc'))) {
+            assets.push({
+              type: 'document',
+              url: href,
+              filename: href.split('/').pop() || 'document',
+              context: link.textContent?.trim() || '',
+            });
+          }
+        });
+
+        // Extract text content
+        const textElements = document.querySelectorAll('h1, h2, h3, p, .tagline, .slogan, .mission, .vision');
+        textElements.forEach(el => {
+          const text = el.textContent?.trim();
+          if (text && text.length > 10 && text.length < 500) {
+            textContent.push(text);
+          }
+        });
+
+        // Extract links
+        document.querySelectorAll('a[href]').forEach(link => {
+          const href = (link as HTMLAnchorElement).href;
+          if (href && href.startsWith('http')) {
+            links.push(href);
+          }
+        });
+
+        // Extract metadata
+        const title = document.title || '';
+        const description = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+        const keywords = document.querySelector('meta[name="keywords"]')?.getAttribute('content')?.split(',') || [];
+
+        // Extract social media links
+        const socialMedia: Record<string, string> = {};
+        document.querySelectorAll('a[href*="facebook"], a[href*="twitter"], a[href*="instagram"], a[href*="linkedin"]').forEach(link => {
+          const href = (link as HTMLAnchorElement).href;
+          if (href.includes('facebook')) socialMedia.facebook = href;
+          if (href.includes('twitter')) socialMedia.twitter = href;
+          if (href.includes('instagram')) socialMedia.instagram = href;
+          if (href.includes('linkedin')) socialMedia.linkedin = href;
+        });
+
+        return {
+          assets,
+          textContent,
+          links,
+          metadata: {
+            title,
+            description,
+            keywords,
+            socialMedia,
+          },
+        };
+      });
+
+      return {
+        ...content,
+        visualData,
+      };
+
+    } finally {
+      await page.close();
+    }
   }
 
   private async scrapePage(url: string): Promise<{

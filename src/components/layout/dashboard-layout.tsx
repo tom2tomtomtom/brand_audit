@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers';
 import { Button } from '@/components/ui/button';
-import { 
+import {
   Globe,
   LayoutDashboard,
   FolderOpen,
@@ -17,7 +17,8 @@ import {
   X,
   LogOut,
   User,
-  Bell
+  Bell,
+  Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +41,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       name: 'Projects',
       href: '/dashboard/projects',
       icon: FolderOpen,
+    },
+    {
+      name: 'Visual Analysis',
+      href: '/dashboard/visual-analysis',
+      icon: Eye,
     },
     {
       name: 'Analytics',
