@@ -3,7 +3,7 @@ import { VisualBrandData } from './scraper';
 
 export class VisualBrandAnalyzer {
   
-  async analyzeVisualBrand(page: Page, websiteUrl: string): Promise<VisualBrandData> {
+  async analyzeVisualBrand(page: Page, _websiteUrl: string): Promise<VisualBrandData> {
     const visualData: VisualBrandData = {
       logos: {
         variations: [],
@@ -171,7 +171,9 @@ export class VisualBrandAnalyzer {
 
       // Process extracted data
       visualData.logos.variations = extractedData.logos;
-      visualData.logos.primary = extractedData.logos[0]; // First logo as primary
+      if (extractedData.logos.length > 0 && extractedData.logos[0]) {
+        visualData.logos.primary = extractedData.logos[0]; // First logo as primary
+      }
       
       // Process colors
       const processedColors = this.processColors(extractedData.colors);
@@ -208,7 +210,7 @@ export class VisualBrandAnalyzer {
       .filter(color => color !== null) as string[];
 
     // Remove duplicates
-    const uniqueColors = [...new Set(colors)];
+    const uniqueColors = Array.from(new Set(colors));
 
     // Sort by frequency and brightness
     const sortedColors = uniqueColors.sort((a, b) => {
@@ -228,8 +230,10 @@ export class VisualBrandAnalyzer {
   private normalizeColor(color: string): string | null {
     // Convert rgb/rgba to hex
     const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/);
-    if (rgbMatch) {
-      const [, r, g, b] = rgbMatch;
+    if (rgbMatch && rgbMatch[1] && rgbMatch[2] && rgbMatch[3]) {
+      const r = rgbMatch[1];
+      const g = rgbMatch[2];
+      const b = rgbMatch[3];
       return `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`;
     }
 

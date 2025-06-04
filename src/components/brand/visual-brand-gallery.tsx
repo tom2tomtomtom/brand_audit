@@ -5,13 +5,10 @@ import { VisualBrandCard } from './visual-brand-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Search, 
-  Filter, 
-  Grid3X3, 
-  List, 
-  Palette, 
-  Type, 
+import {
+  Search,
+  Grid3X3,
+  List,
   Sparkles,
   SortAsc,
   SortDesc
@@ -51,7 +48,7 @@ export function VisualBrandGallery({
 
   // Filter and sort brands
   const filteredAndSortedBrands = useMemo(() => {
-    let filtered = brands.filter(brand => {
+    const filtered = brands.filter(brand => {
       // Search filter
       const matchesSearch = brand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            brand.industry?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -60,9 +57,9 @@ export function VisualBrandGallery({
 
       // Visual style filter
       if (filterBy === 'all') return true;
-      
+
       const visualStyle = brand.visualData?.visualStyle;
-      if (!visualStyle) return filterBy === 'all';
+      if (!visualStyle) return false;
 
       switch (filterBy) {
         case 'minimalist':

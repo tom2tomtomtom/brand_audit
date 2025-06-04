@@ -30,14 +30,14 @@ export function DashboardContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  useEffect(() => {
+    fetchProjects();
+  }, [currentOrganization]);
+
   // Show no organization screen if user has no organizations
   if (!loading && organizations.length === 0) {
     return <NoOrganization />;
   }
-
-  useEffect(() => {
-    fetchProjects();
-  }, [currentOrganization]);
 
   const fetchProjects = async () => {
     try {

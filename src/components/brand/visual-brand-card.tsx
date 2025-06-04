@@ -4,15 +4,14 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Eye, 
-  Palette, 
-  Type, 
-  Image as ImageIcon, 
-  Monitor, 
+import {
+  Eye,
+  Palette,
+  Type,
+  Image as ImageIcon,
+  Monitor,
   Smartphone,
   ExternalLink,
-  Download,
   Heart,
   Share2
 } from 'lucide-react';
@@ -26,8 +25,8 @@ interface VisualBrandCardProps {
     industry?: string;
     visualData?: VisualBrandData;
   };
-  onAnalyze?: (brandId: string) => void;
-  onViewDetails?: (brandId: string) => void;
+  onAnalyze?: ((brandId: string) => void) | undefined;
+  onViewDetails?: ((brandId: string) => void) | undefined;
 }
 
 export function VisualBrandCard({ brand, onAnalyze, onViewDetails }: VisualBrandCardProps) {

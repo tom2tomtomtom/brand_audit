@@ -4,15 +4,13 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Palette, 
-  Copy, 
-  Download, 
-  Eye, 
+import {
+  Palette,
+  Copy,
+  Eye,
   Zap,
   TrendingUp,
-  BarChart3,
-  CheckCircle
+  BarChart3
 } from 'lucide-react';
 import { VisualBrandData } from '@/services/scraper';
 import toast from 'react-hot-toast';

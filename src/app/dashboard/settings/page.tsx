@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/components/providers';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
+
 import {
   User,
   Building,
@@ -19,8 +19,7 @@ import {
   CreditCard,
   Key,
   Trash2,
-  Save,
-  AlertTriangle
+  Save
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { normalizeUrl, isValidUrl } from '@/lib/utils';
@@ -56,7 +55,7 @@ export default function SettingsPage() {
   });
 
   // API Keys
-  const [apiKeys, setApiKeys] = useState([]);
+  const [apiKeys, setApiKeys] = useState<string[]>([]);
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: User },
@@ -96,7 +95,7 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       // Validate and normalize website URL if provided
-      let normalizedOrgData = { ...orgData };
+      const normalizedOrgData = { ...orgData };
       if (orgData.website && orgData.website.trim()) {
         const normalizedUrl = normalizeUrl(orgData.website.trim());
         if (!isValidUrl(normalizedUrl)) {

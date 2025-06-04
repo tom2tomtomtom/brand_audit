@@ -29,7 +29,7 @@ export function CreateOrganizationModal({ onSuccess }: CreateOrganizationModalPr
 
     try {
       // Validate and normalize website URL if provided
-      let normalizedFormData = { ...formData };
+      const normalizedFormData = { ...formData };
       if (formData.website && formData.website.trim()) {
         const normalizedUrl = normalizeUrl(formData.website.trim());
         if (!isValidUrl(normalizedUrl)) {
