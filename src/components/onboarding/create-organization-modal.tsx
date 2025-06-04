@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { normalizeUrl, isValidUrl } from '@/lib/utils';
 
 interface CreateOrganizationModalProps {
   onSuccess: () => void;
@@ -27,10 +28,22 @@ export function CreateOrganizationModal({ onSuccess }: CreateOrganizationModalPr
     setLoading(true);
 
     try {
+      // Validate and normalize website URL if provided
+      let normalizedFormData = { ...formData };
+      if (formData.website && formData.website.trim()) {
+        const normalizedUrl = normalizeUrl(formData.website.trim());
+        if (!isValidUrl(normalizedUrl)) {
+          toast.error('Please enter a valid website URL');
+          setLoading(false);
+          return;
+        }
+        normalizedFormData.website = normalizedUrl;
+      }
+
       const response = await fetch('/api/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(normalizedFormData),
       });
 
       if (response.ok) {
@@ -91,11 +104,13 @@ export function CreateOrganizationModal({ onSuccess }: CreateOrganizationModalPr
               <Label htmlFor="website">Website</Label>
               <Input
                 id="website"
-                type="url"
                 value={formData.website}
                 onChange={(e) => handleInputChange('website', e.target.value)}
-                placeholder="https://example.com"
+                placeholder="example.com"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                https:// will be added automatically if not provided
+              </p>
             </div>
 
             <div>

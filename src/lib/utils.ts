@@ -67,9 +67,30 @@ export function extractDomain(url: string) {
   }
 }
 
+export function normalizeUrl(url: string): string {
+  if (!url) return '';
+
+  // Remove whitespace
+  url = url.trim();
+
+  // If it already has a protocol, return as is
+  if (url.match(/^https?:\/\//i)) {
+    return url;
+  }
+
+  // If it starts with //, add https:
+  if (url.startsWith('//')) {
+    return `https:${url}`;
+  }
+
+  // Otherwise, add https://
+  return `https://${url}`;
+}
+
 export function isValidUrl(string: string) {
   try {
-    const url = new URL(string);
+    const normalizedUrl = normalizeUrl(string);
+    const url = new URL(normalizedUrl);
     return url.protocol === 'http:' || url.protocol === 'https:';
   } catch {
     return false;

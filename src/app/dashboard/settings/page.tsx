@@ -23,6 +23,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { normalizeUrl, isValidUrl } from '@/lib/utils';
 
 export default function SettingsPage() {
   const { user, currentOrganization, signOut } = useAuth();
@@ -94,10 +95,22 @@ export default function SettingsPage() {
   const handleSaveOrganization = async () => {
     setLoading(true);
     try {
+      // Validate and normalize website URL if provided
+      let normalizedOrgData = { ...orgData };
+      if (orgData.website && orgData.website.trim()) {
+        const normalizedUrl = normalizeUrl(orgData.website.trim());
+        if (!isValidUrl(normalizedUrl)) {
+          toast.error('Please enter a valid website URL');
+          setLoading(false);
+          return;
+        }
+        normalizedOrgData.website = normalizedUrl;
+      }
+
       const response = await fetch(`/api/organizations/${currentOrganization?.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orgData),
+        body: JSON.stringify(normalizedOrgData),
       });
 
       if (response.ok) {
@@ -247,8 +260,11 @@ export default function SettingsPage() {
                     id="website"
                     value={orgData.website}
                     onChange={(e) => setOrgData({ ...orgData, website: e.target.value })}
-                    placeholder="https://example.com"
+                    placeholder="example.com"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    https:// will be added automatically if not provided
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="industry">Industry</Label>

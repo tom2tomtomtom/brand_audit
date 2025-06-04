@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { X, Plus, Trash2, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { normalizeUrl, isValidUrl } from '@/lib/utils';
 import type { CreateProjectForm } from '@/types';
 
 interface CreateProjectModalProps {
@@ -54,13 +55,22 @@ export function CreateProjectModal({ open, onClose, onSuccess }: CreateProjectMo
       return;
     }
 
-    const validBrands = brands.filter(brand => 
+    const validBrands = brands.filter(brand =>
       brand.name.trim() && brand.websiteUrl.trim()
     );
 
     if (validBrands.length === 0) {
       toast.error('At least one brand with name and URL is required');
       return;
+    }
+
+    // Validate URLs
+    for (const brand of validBrands) {
+      const normalizedUrl = normalizeUrl(brand.websiteUrl.trim());
+      if (!isValidUrl(normalizedUrl)) {
+        toast.error(`Invalid URL for ${brand.name}: ${brand.websiteUrl}`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -71,7 +81,7 @@ export function CreateProjectModal({ open, onClose, onSuccess }: CreateProjectMo
         description: projectDescription.trim() || undefined,
         brands: validBrands.map(brand => ({
           name: brand.name.trim(),
-          websiteUrl: brand.websiteUrl.trim(),
+          websiteUrl: normalizeUrl(brand.websiteUrl.trim()),
           industry: brand.industry?.trim() || undefined,
         })),
       };
@@ -221,13 +231,15 @@ export function CreateProjectModal({ open, onClose, onSuccess }: CreateProjectMo
                           <Label htmlFor={`brandUrl-${index}`}>Website URL *</Label>
                           <Input
                             id={`brandUrl-${index}`}
-                            type="url"
                             value={brand.websiteUrl}
                             onChange={(e) => handleBrandChange(index, 'websiteUrl', e.target.value)}
-                            placeholder="https://example.com"
+                            placeholder="example.com or apple.com"
                             disabled={loading}
                             required
                           />
+                          <p className="text-xs text-gray-500">
+                            https:// will be added automatically if not provided
+                          </p>
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
