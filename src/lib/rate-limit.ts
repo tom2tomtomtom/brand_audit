@@ -63,7 +63,8 @@ class MemoryStore implements RateLimitStore {
   // Cleanup expired entries periodically
   cleanup(): void {
     const now = Date.now();
-    for (const [key, entry] of this.store.entries()) {
+    const entries = Array.from(this.store.entries());
+    for (const [key, entry] of entries) {
       if (now > entry.resetTime) {
         this.store.delete(key);
       }
@@ -239,8 +240,8 @@ export class RateLimiter {
       logger.warn('Rate limit exceeded', {
         key: this.config.keyGenerator(request),
         limit: result.limit,
-        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
-        userAgent: request.headers.get('user-agent'),
+        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
         url: request.url,
       });
 
@@ -343,4 +344,4 @@ export function withRateLimit(rateLimiter: RateLimiter) {
 }
 
 // Export types
-export type { RateLimitConfig, RateLimitStore };
+export type { RateLimitConfig as RateLimiterConfig, RateLimitStore as RateLimiterStore };

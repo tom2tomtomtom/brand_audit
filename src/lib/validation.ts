@@ -132,12 +132,15 @@ export function validateRequest<T>(schema: z.ZodSchema<T>) {
         data = Object.fromEntries(url.searchParams.entries());
         
         // Convert string values to appropriate types for query params
+        const convertedData: Record<string, any> = {};
         Object.keys(data).forEach(key => {
           const value = data[key];
-          if (value === 'true') data[key] = true;
-          else if (value === 'false') data[key] = false;
-          else if (!isNaN(Number(value)) && value !== '') data[key] = Number(value);
+          if (value === 'true') convertedData[key] = true;
+          else if (value === 'false') convertedData[key] = false;
+          else if (!isNaN(Number(value)) && value !== '') convertedData[key] = Number(value);
+          else convertedData[key] = value;
         });
+        data = convertedData;
       }
       
       return schema.parse(data);

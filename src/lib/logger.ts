@@ -76,8 +76,8 @@ class Logger {
       entry.error = {
         name: error.name,
         message: error.message,
-        stack: error.stack,
-        code: (error as any).code,
+        ...(error.stack && { stack: error.stack }),
+        ...((error as any).code && { code: (error as any).code }),
       };
     }
 
@@ -340,4 +340,4 @@ export const logDatabaseOperation = async <T>(
 };
 
 // Export types
-export type { LogContext, LogEntry };
+export type { LogContext as LoggerContext, LogEntry as LoggerEntry };
