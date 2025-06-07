@@ -4,9 +4,6 @@ import { z } from 'zod';
 
 const createOrganizationSchema = z.object({
   name: z.string().min(1, 'Organization name is required'),
-  description: z.string().optional(),
-  website: z.string().url().optional().or(z.literal('')),
-  industry: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -35,16 +32,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate a unique slug for the organization
+    const baseSlug = validatedData.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 50);
+    const orgSlug = `${baseSlug}-${Date.now()}`;
+
     // Create organization
     const { data: organization, error: orgError } = await supabase
       .from('organizations')
       .insert({
         name: validatedData.name,
-        description: validatedData.description,
-        website: validatedData.website || null,
-        industry: validatedData.industry,
+        slug: orgSlug,
         subscription_tier: 'free',
-        created_by: user.id,
       })
       .select()
       .single();
@@ -64,7 +62,6 @@ export async function POST(request: NextRequest) {
         organization_id: organization.id,
         user_id: user.id,
         role: 'admin',
-        status: 'active',
       });
 
     if (memberError) {
@@ -81,9 +78,7 @@ export async function POST(request: NextRequest) {
       organization: {
         id: organization.id,
         name: organization.name,
-        description: organization.description,
-        website: organization.website,
-        industry: organization.industry,
+        slug: organization.slug,
         subscriptionTier: organization.subscription_tier,
         createdAt: organization.created_at,
       },
@@ -118,21 +113,17 @@ export async function GET(request: NextRequest) {
       .from('organization_members')
       .select(`
         role,
-        status,
         organizations (
           id,
           name,
-          description,
-          website,
-          industry,
+          slug,
           subscription_tier,
           logo_url,
           created_at,
           updated_at
         )
       `)
-      .eq('user_id', user.id)
-      .eq('status', 'active');
+      .eq('user_id', user.id);
 
     if (error) {
       console.error('Error fetching organizations:', error);
@@ -145,9 +136,7 @@ export async function GET(request: NextRequest) {
     const organizations = memberships?.map(membership => ({
       id: (membership.organizations as any).id,
       name: (membership.organizations as any).name,
-      description: (membership.organizations as any).description,
-      website: (membership.organizations as any).website,
-      industry: (membership.organizations as any).industry,
+      slug: (membership.organizations as any).slug,
       subscriptionTier: (membership.organizations as any).subscription_tier,
       logoUrl: (membership.organizations as any).logo_url,
       role: membership.role,

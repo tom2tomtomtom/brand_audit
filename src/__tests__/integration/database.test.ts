@@ -8,13 +8,25 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 // For now, we'll mock the Supabase client but test the logic
 
 const mockSupabase = {
-  from: jest.fn(),
+  from: jest.fn(() => ({
+    select: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    single: jest.fn().mockResolvedValue({ data: null, error: null }),
+  })),
   auth: {
     getUser: jest.fn(),
   },
   rpc: jest.fn(),
   storage: {
-    from: jest.fn(),
+    from: jest.fn(() => ({
+      upload: jest.fn(),
+      download: jest.fn(),
+      remove: jest.fn(),
+    })),
   },
 };
 
@@ -197,23 +209,23 @@ describe('Database Integration Tests', () => {
 
     it('should handle project access control', async () => {
       // Mock project query with RLS
-      mockSupabase.from.mockReturnValue({
+      const mockChain = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
           data: null,
           error: { code: 'PGRST116' }, // Not found due to RLS
         }),
-      });
+      };
+      mockSupabase.from.mockReturnValue(mockChain);
 
       const supabase = createServerSupabase();
-      const projectQuery = supabase
+      const result = await supabase
         .from('projects')
         .select('*')
         .eq('id', 'project-123')
         .single();
 
-      const result = await projectQuery;
       expect(result.data).toBeNull();
       expect(result.error?.code).toBe('PGRST116');
     });
@@ -221,7 +233,7 @@ describe('Database Integration Tests', () => {
 
   describe('Brand Operations', () => {
     it('should update brand status', async () => {
-      mockSupabase.from.mockReturnValue({
+      const mockChain = {
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
@@ -229,7 +241,8 @@ describe('Database Integration Tests', () => {
           data: { id: 'brand-123', status: 'in_progress' },
           error: null,
         }),
-      });
+      };
+      mockSupabase.from.mockReturnValue(mockChain);
 
       const supabase = createServerSupabase();
       const result = await supabase
@@ -253,12 +266,13 @@ describe('Database Integration Tests', () => {
         },
       ];
 
-      mockSupabase.from.mockReturnValue({
+      const mockChain = {
         insert: jest.fn().mockResolvedValue({
           data: mockAssets,
           error: null,
         }),
-      });
+      };
+      mockSupabase.from.mockReturnValue(mockChain);
 
       const supabase = createServerSupabase();
       const result = await supabase.from('assets').insert(mockAssets);

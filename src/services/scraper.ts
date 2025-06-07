@@ -269,13 +269,15 @@ export class BrandScraperService {
 
       // Scrape main page with visual analysis
       const mainPageResult = await this.scrapePageWithVisuals(websiteUrl);
-      result.assets.push(...mainPageResult.assets);
-      result.textContent.push(...mainPageResult.textContent);
-      result.metadata = { ...result.metadata, ...mainPageResult.metadata };
-      result.visualData = mainPageResult.visualData;
+      if (mainPageResult && mainPageResult.assets) {
+        result.assets.push(...mainPageResult.assets);
+        result.textContent.push(...(mainPageResult.textContent || []));
+        result.metadata = { ...result.metadata, ...(mainPageResult.metadata || {}) };
+        result.visualData = mainPageResult.visualData;
+      }
 
       // Find and scrape additional pages
-      const additionalUrls = this.findAdditionalUrls(mainPageResult.links, websiteUrl);
+      const additionalUrls = this.findAdditionalUrls(mainPageResult?.links || [], websiteUrl);
       const limitedUrls = additionalUrls.slice(0, this.config.maxPages - 1);
 
       for (const url of limitedUrls) {

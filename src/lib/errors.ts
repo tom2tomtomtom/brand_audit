@@ -274,10 +274,11 @@ export function createScrapingError(url: string, error: unknown): AppError {
 
 export function createAIError(provider: string, error: unknown): AppError {
   if (error instanceof Error) {
-    if (error.message.includes('quota') || error.message.includes('rate limit')) {
+    const message = error.message.toLowerCase();
+    if (message.includes('quota') || message.includes('rate limit')) {
       return new AIQuotaExceededError(provider);
     }
-    if (error.message.includes('invalid') || error.message.includes('format')) {
+    if (message.includes('invalid') || message.includes('format')) {
       return new AIInvalidResponseError(provider, error.message);
     }
     return new AIServiceError(provider, error.message, error);

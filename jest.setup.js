@@ -1,5 +1,61 @@
 import '@testing-library/jest-dom'
 
+// Polyfill Web APIs for Jest environment
+global.Request = class Request {
+  constructor(input, init = {}) {
+    this.url = typeof input === 'string' ? input : input.url;
+    this.method = init.method || 'GET';
+    this.headers = new Headers(init.headers);
+    this.body = init.body;
+  }
+};
+
+global.Response = class Response {
+  constructor(body, init = {}) {
+    this._body = body;
+    this.status = init.status || 200;
+    this.headers = new Headers(init.headers);
+    this.ok = this.status >= 200 && this.status < 300;
+  }
+
+  static json(data, init) {
+    const response = new Response(JSON.stringify(data), init);
+    response.headers.set('Content-Type', 'application/json');
+    return response;
+  }
+
+  async json() {
+    return JSON.parse(this._body);
+  }
+
+  async text() {
+    return this._body;
+  }
+};
+
+global.Headers = class Headers {
+  constructor(init = {}) {
+    this._headers = new Map();
+    if (init) {
+      for (const [key, value] of Object.entries(init)) {
+        this.set(key, value);
+      }
+    }
+  }
+
+  set(key, value) {
+    this._headers.set(key.toLowerCase(), value);
+  }
+
+  get(key) {
+    return this._headers.get(key.toLowerCase());
+  }
+
+  has(key) {
+    return this._headers.has(key.toLowerCase());
+  }
+};
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {
@@ -37,7 +93,8 @@ jest.mock('src/lib/supabase', () => ({
       update: jest.fn().mockReturnThis(),
       delete: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(),
+      order: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: null, error: null }),
     })),
     storage: {
       from: jest.fn(() => ({
@@ -61,7 +118,8 @@ jest.mock('src/lib/supabase-server', () => ({
       update: jest.fn().mockReturnThis(),
       delete: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(),
+      order: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: null, error: null }),
       rpc: jest.fn(),
     })),
     storage: {
@@ -109,6 +167,8 @@ jest.mock('puppeteer', () => ({
       pdf: jest.fn(),
       addStyleTag: jest.fn(),
       setContent: jest.fn(),
+      screenshot: jest.fn().mockResolvedValue(Buffer.from('fake-screenshot')),
+      evaluate: jest.fn().mockResolvedValue({}),
     })),
     close: jest.fn(),
   })),

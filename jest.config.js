@@ -37,6 +37,11 @@ const customJestConfig = {
   testEnvironmentOptions: {
     customExportConditions: [''],
   },
+  // Avoid Jest haste map collisions
+  haste: {
+    enableSymlinks: false,
+  },
+  modulePathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/.netlify/'],
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
