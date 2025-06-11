@@ -9,10 +9,8 @@ const nextConfig: NextConfig = {
     unoptimized: true
   },
   
-  // Enable experimental features needed for app directory
-  experimental: {
-    serverComponentsExternalPackages: ['puppeteer']
-  },
+  // Configure external packages for server components
+  serverExternalPackages: ['puppeteer'],
   
   // Configure webpack for browser compatibility
   webpack: (config, { isServer }) => {
