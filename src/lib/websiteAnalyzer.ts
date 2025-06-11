@@ -18,19 +18,19 @@ interface WebsiteData {
 
 export async function analyzeWebsite(url: string): Promise<WebsiteData> {
   try {
-    console.log(`Fetching website: ${url}`);
+    console.log(`🌐 STARTING REAL FETCH for: ${url}`);
     
     // Fetch the website with a reasonable timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
     
-    const response = await fetch(url, {
+    // Use CORS proxy for client-side fetching (this is why it was failing instantly)
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    console.log(`🔄 Using CORS proxy: ${proxyUrl}`);
+    
+    const response = await fetch(proxyUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; BrandAuditBot/1.0; +https://brandaudit.tool)',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'Connection': 'keep-alive',
+        'Accept': 'application/json',
       },
       signal: controller.signal,
     });
@@ -38,11 +38,16 @@ export async function analyzeWebsite(url: string): Promise<WebsiteData> {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`Proxy HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const html = await response.text();
-    console.log(`Successfully fetched ${html.length} characters from ${url}`);
+    const proxyData = await response.json();
+    if (proxyData.status?.http_code && proxyData.status.http_code !== 200) {
+      throw new Error(`Website returned ${proxyData.status.http_code}`);
+    }
+    
+    const html = proxyData.contents || '';
+    console.log(`✅ Successfully fetched ${html.length} characters from ${url} via proxy`);
 
     // Parse HTML content
     const websiteData = parseHTMLContent(html, url);
@@ -50,10 +55,10 @@ export async function analyzeWebsite(url: string): Promise<WebsiteData> {
     return websiteData;
 
   } catch (error) {
-    console.error(`Error analyzing website ${url}:`, error);
+    console.error(`❌ REAL FETCH FAILED for ${url}:`, error);
     
-    // Return fallback data for failed requests
-    return createFallbackWebsiteData(url, error);
+    // Don't return fake data - throw the error so the API knows it failed
+    throw new Error(`Failed to fetch website ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
