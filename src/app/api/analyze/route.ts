@@ -14,13 +14,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Starting analysis for ${brands.length} brands:`, brands);
+    console.log(`🚀 Starting REAL analysis for ${brands.length} brands:`, brands);
 
     const analysisResults = [];
 
     for (const brandInput of brands) {
       try {
-        console.log(`Analyzing brand: ${brandInput}`);
+        console.log(`🔍 Analyzing brand: ${brandInput}`);
         
         // Normalize brand input (handle both "company.com" and "Company Name" formats)
         const website = brandInput.toLowerCase().includes('.') 
@@ -34,92 +34,78 @@ export async function POST(request: NextRequest) {
         // 1. Analyze website structure and content
         console.log(`Step 1: Analyzing website structure for ${brandName}`);
         const websiteData = await analyzeWebsite(website);
+        console.log(`Website data extracted:`, {
+          title: websiteData.title || 'No title',
+          description: websiteData.metaDescription ? 'Found' : 'None',
+          contentLength: websiteData.content?.length || 0,
+          industry: websiteData.detectedIndustry || 'Not detected'
+        });
 
         // 2. Extract visual assets (logos, colors, fonts)
         console.log(`Step 2: Extracting visual assets for ${brandName}`);
         const visualAssets = await extractVisualAssets(website, websiteData);
+        console.log(`Visual assets:`, {
+          logo: visualAssets.logo ? 'Found' : 'None',
+          colors: visualAssets.colors?.length || 0,
+          fonts: visualAssets.fonts?.length || 0
+        });
 
         // 3. Generate AI-powered insights
         console.log(`Step 3: Generating AI insights for ${brandName}`);
         const aiInsights = await generateAIInsights(websiteData, visualAssets, brandName);
+        console.log(`AI insights generated:`, {
+          hasOverallScore: !!aiInsights.overallScore,
+          hasIndustry: !!aiInsights.industry,
+          hasDescription: !!aiInsights.description
+        });
 
         // 4. Compile comprehensive brand analysis
         const brandAnalysis = {
           name: brandName,
           website: website,
-          score: aiInsights.overallScore || Math.floor(Math.random() * 30) + 70, // Fallback score
+          score: aiInsights.overallScore || null, // Only real scores
           error: undefined, // Explicitly add error property
           
-          // Company Overview
+          // Company Overview - ONLY real data
           overview: {
-            industry: aiInsights.industry || websiteData.detectedIndustry || 'Technology',
-            description: aiInsights.description || websiteData.metaDescription || `${brandName} provides innovative solutions in their market.`,
-            founded: aiInsights.founded || 'Not specified',
-            revenue: aiInsights.revenue || 'Not specified',
-            employees: aiInsights.employees || 'Not specified',
+            industry: aiInsights.industry || websiteData.detectedIndustry || null,
+            description: aiInsights.description || websiteData.metaDescription || null,
+            founded: aiInsights.founded || null,
+            revenue: aiInsights.revenue || null,
+            employees: aiInsights.employees || null,
           },
 
-          // Brand Positioning
+          // Brand Positioning - ONLY real data
           positioning: {
-            statement: aiInsights.positioning || `${brandName} is a leading provider in their industry.`,
-            valueProposition: aiInsights.valueProposition || 'Innovative solutions for modern challenges.',
-            targetAudience: aiInsights.targetAudience || 'Professional and enterprise customers',
-            personality: aiInsights.brandPersonality || 'Professional, innovative, and reliable',
-            marketPosition: aiInsights.marketPosition || 'Established player',
+            statement: aiInsights.positioning || null,
+            valueProposition: aiInsights.valueProposition || null,
+            targetAudience: aiInsights.targetAudience || null,
+            personality: aiInsights.brandPersonality || null,
+            marketPosition: aiInsights.marketPosition || null,
           },
 
-          // Digital Presence Scores
+          // Digital Presence Scores - ONLY real analysis
           digital: {
-            seoScore: aiInsights.seoScore || Math.floor(Math.random() * 4) + 6,
-            uxScore: aiInsights.uxScore || Math.floor(Math.random() * 4) + 6,
-            socialScore: aiInsights.socialScore || Math.floor(Math.random() * 4) + 5,
-            contentScore: aiInsights.contentScore || Math.floor(Math.random() * 4) + 6,
+            seoScore: aiInsights.seoScore || null,
+            uxScore: aiInsights.uxScore || null,
+            socialScore: aiInsights.socialScore || null,
+            contentScore: aiInsights.contentScore || null,
           },
 
-          // Visual Identity
+          // Visual Identity - ONLY real extracted data  
           visual: {
-            logo: visualAssets.logo,
-            colors: visualAssets.colors || ['#1a365d', '#2d3748', '#4a5568'],
-            fonts: visualAssets.fonts || ['Arial', 'Helvetica', 'sans-serif'],
+            logo: visualAssets.logo || null,
+            colors: visualAssets.colors || [],
+            fonts: visualAssets.fonts || [],
             screenshots: visualAssets.screenshots || [],
           },
 
-          // SWOT Analysis
-          strengths: aiInsights.strengths || [
-            'Strong brand recognition in target market',
-            'Professional website design and user experience',
-            'Clear value proposition and messaging',
-            'Good digital presence and SEO performance',
-            'Quality content and thought leadership'
-          ],
-
-          weaknesses: aiInsights.weaknesses || [
-            'Could improve mobile experience optimization',
-            'Limited social media engagement',
-            'Opportunity to enhance visual brand consistency',
-            'Could expand content marketing efforts'
-          ],
-
-          opportunities: aiInsights.opportunities || [
-            'Expand into emerging market segments',
-            'Enhance digital marketing capabilities',
-            'Develop strategic partnerships',
-            'Improve customer experience touchpoints'
-          ],
-
-          threats: aiInsights.threats || [
-            'Increasing competition from new entrants',
-            'Rapid technological changes in industry',
-            'Economic uncertainty affecting customer spending'
-          ],
-
-          recommendations: aiInsights.recommendations || [
-            'Invest in mobile-first design improvements',
-            'Enhance social media presence and engagement',
-            'Develop more interactive content experiences',
-            'Strengthen brand visual consistency across platforms',
-            'Expand thought leadership content strategy'
-          ],
+          // SWOT Analysis - ONLY real AI analysis
+          strengths: aiInsights.strengths || [],
+          weaknesses: aiInsights.weaknesses || [],
+          opportunities: aiInsights.opportunities || [],
+          threats: aiInsights.threats || [],
+          recommendations: aiInsights.recommendations || [],
 
           // Recent Brand Work (from content analysis)
           recentWork: websiteData.recentContent || [],
@@ -156,11 +142,7 @@ export async function POST(request: NextRequest) {
       summary: {
         totalBrands: analysisResults.length,
         successfulAnalyses: analysisResults.filter((r) => !r.error).length,
-        averageScore: Math.round(
-          analysisResults.filter((r) => !r.error && r.score > 0)
-            .reduce((sum: number, brand: any) => sum + brand.score, 0) / 
-          Math.max(1, analysisResults.filter((r) => !r.error && r.score).length)
-        ),
+        averageScore: null, // No fake average scores
         analysisDate: new Date().toISOString(),
       },
       generatedAt: new Date().toISOString()

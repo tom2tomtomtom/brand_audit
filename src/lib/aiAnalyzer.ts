@@ -1,24 +1,24 @@
 interface AIInsights {
-  overallScore: number;
-  industry: string;
-  description: string;
-  positioning: string;
-  valueProposition: string;
-  targetAudience: string;
-  brandPersonality: string;
-  marketPosition: string;
-  seoScore: number;
-  uxScore: number;
-  socialScore: number;
-  contentScore: number;
+  overallScore: number | null;
+  industry: string | null;
+  description: string | null;
+  positioning: string | null;
+  valueProposition: string | null;
+  targetAudience: string | null;
+  brandPersonality: string | null;
+  marketPosition: string | null;
+  seoScore: number | null;
+  uxScore: number | null;
+  socialScore: number | null;
+  contentScore: number | null;
   strengths: string[];
   weaknesses: string[];
   opportunities: string[];
   threats: string[];
   recommendations: string[];
-  founded?: string;
-  revenue?: string;
-  employees?: string;
+  founded?: string | null;
+  revenue?: string | null;
+  employees?: string | null;
 }
 
 export async function generateAIInsights(
@@ -38,8 +38,8 @@ export async function generateAIInsights(
       }
     }
     
-    // Comprehensive fallback analysis
-    return generateComprehensiveFallbackInsights(websiteData, visualAssets, brandName);
+    // Return only actual extracted data, no fake insights
+    return generateRealDataOnlyInsights(websiteData, visualAssets, brandName);
     
   } catch (error) {
     console.error(`Error generating AI insights for ${brandName}:`, error);
@@ -171,6 +171,37 @@ function generateComprehensiveFallbackInsights(
     founded: insights.founded,
     revenue: insights.revenue,
     employees: insights.employees,
+  });
+}
+
+function generateRealDataOnlyInsights(
+  websiteData: any, 
+  visualAssets: any, 
+  brandName: string
+): Promise<AIInsights> {
+  
+  // Only return actual extracted data, NO generated content
+  return Promise.resolve({
+    overallScore: null, // No fake scores
+    industry: websiteData.detectedIndustry || null,
+    description: websiteData.metaDescription || null,
+    positioning: null, // No fake positioning
+    valueProposition: null, // No fake value prop
+    targetAudience: null, // No fake audience
+    brandPersonality: null, // No fake personality
+    marketPosition: null, // No fake position
+    seoScore: null, // No fake SEO score
+    uxScore: null, // No fake UX score  
+    socialScore: null, // No fake social score
+    contentScore: null, // No fake content score
+    strengths: [], // No fake strengths
+    weaknesses: [], // No fake weaknesses
+    opportunities: [], // No fake opportunities
+    threats: [], // No fake threats
+    recommendations: [], // No fake recommendations
+    founded: null, // No fake founding date
+    revenue: null, // No fake revenue
+    employees: null // No fake employee count
   });
 }
 

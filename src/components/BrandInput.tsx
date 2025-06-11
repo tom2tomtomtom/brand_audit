@@ -82,7 +82,7 @@ export default function BrandInput({ onAnalyze }: BrandInputProps) {
             value={industry}
             onChange={(e) => setIndustry(e.target.value)}
             placeholder="e.g., Healthcare, Technology, Retail, Finance..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
           />
           <p className="text-sm text-gray-500 mt-1">
             Helps tailor the analysis to industry-specific metrics and insights
@@ -103,7 +103,7 @@ export default function BrandInput({ onAnalyze }: BrandInputProps) {
                     value={brand}
                     onChange={(e) => updateBrand(index, e.target.value)}
                     placeholder={`Brand ${index + 1} (e.g., company.com or "Company Name")`}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg text-gray-900 placeholder-gray-400"
                   />
                 </div>
                 {brands.length > 1 && (
