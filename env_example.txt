@@ -1,0 +1,13 @@
+# Brand Analysis Tool Environment Variables
+
+# OpenAI API Configuration (REQUIRED - no fallback analysis available)
+# Get your API key from: https://platform.openai.com/api-keys
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Flask Configuration
+FLASK_ENV=development
+FLASK_DEBUG=True
+
+# Analysis Settings
+MAX_ANALYSIS_TIME=600  # Maximum analysis time in seconds (10 minutes)
+MAX_CONCURRENT_JOBS=5   # Maximum concurrent analysis jobs
