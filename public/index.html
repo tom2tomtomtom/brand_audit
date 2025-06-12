@@ -151,8 +151,9 @@
                 
                 <!-- Current Status -->
                 <div class="flex items-center space-x-3">
-                    <div class="spinner"></div>
+                    <div id="status-spinner" class="spinner"></div>
                     <span id="current-status" class="text-gray-700">Initializing analysis...</span>
+                    <span id="connection-status" class="text-xs text-gray-500 hidden">🔄 Reconnecting...</span>
                 </div>
                 
                 <!-- Brand Progress -->
@@ -254,6 +255,8 @@
     <script>
         let currentJobId = null;
         let progressInterval = null;
+        let timeoutCount = 0;
+        let pollingInterval = 3000; // Start with 3 seconds
 
         // Form submission handler
         document.getElementById('analysis-form').addEventListener('submit', async function(e) {
@@ -368,24 +371,41 @@
                 } catch (error) {
                     console.error('Error polling progress:', error);
                     
-                    if (error.name === 'AbortError') {
-                        console.log('Request timed out, retrying...');
-                        // Don't stop polling on timeout, just log it
-                        return;
-                    }
-                    
-                    clearInterval(progressInterval);
-                    
-                    let errorMessage = 'Connection lost. ';
-                    if (error.message.includes('fetch')) {
-                        errorMessage += 'The analysis is still running but connection timed out. Please refresh the page and check back in a few minutes.';
+                    if (error.name === 'AbortError' || error.message.includes('Failed to fetch') || error.message.includes('ERR_TIMED_OUT')) {
+                        timeoutCount++;
+                        console.log(`Request timed out (${timeoutCount} times), continuing to poll...`);
+                        
+                        // Adaptive polling - increase interval after timeouts
+                        if (timeoutCount > 3) {
+                            pollingInterval = Math.min(pollingInterval * 1.5, 15000); // Max 15 seconds
+                            clearInterval(progressInterval);
+                            progressInterval = setInterval(arguments.callee, pollingInterval);
+                        }
+                        
+                        // Show user-friendly message and connection status
+                        const currentProgress = document.getElementById('progress-bar').style.width.replace('%', '') || 0;
+                        updateProgress(currentProgress, 'Analysis running...');
+                        
+                        // Show reconnecting indicator
+                        const connectionStatus = document.getElementById('connection-status');
+                        connectionStatus.textContent = `🔄 Reconnecting... (${Math.round(pollingInterval/1000)}s)`;
+                        connectionStatus.classList.remove('hidden');
+                        
+                        return; // Continue polling
                     } else {
-                        errorMessage += error.message;
+                        // Reset timeout count on successful request
+                        timeoutCount = 0;
+                        pollingInterval = 3000;
+                        
+                        // Hide reconnecting indicator on successful request
+                        document.getElementById('connection-status').classList.add('hidden');
                     }
                     
-                    showError(errorMessage);
+                    // Only stop polling for genuine errors (not timeouts)
+                    clearInterval(progressInterval);
+                    showError(error.message || 'Analysis failed');
                 }
-            }, 3000); // Poll every 3 seconds (reduced frequency)
+            }, pollingInterval); // Use adaptive polling interval
         }
 
         function updateProgress(percentage, message) {
