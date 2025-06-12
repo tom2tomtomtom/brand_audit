@@ -18,7 +18,7 @@ import logging
 from src.scraper import WebScraper
 from src.analyzer import BrandAnalyzer
 from src.report_generator import ReportGenerator
-from src.progress_tracker import ProgressTracker
+from src.supabase_tracker import SupabaseProgressTracker, FallbackProgressTracker
 
 # Load environment variables
 load_dotenv()
@@ -30,8 +30,14 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Global progress tracker
-progress_tracker = ProgressTracker()
+# Global progress tracker - Try Supabase first, fallback to in-memory
+try:
+    progress_tracker = SupabaseProgressTracker()
+    if progress_tracker.supabase is None:
+        progress_tracker = FallbackProgressTracker()
+except Exception as e:
+    logger.warning(f"Failed to initialize Supabase tracker, using fallback: {str(e)}")
+    progress_tracker = FallbackProgressTracker()
 
 @app.route('/')
 def index():
