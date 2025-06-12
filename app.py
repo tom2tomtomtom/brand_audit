@@ -60,6 +60,82 @@ def test_api():
         'timestamp': time.time()
     })
 
+@app.route('/status/<job_id>')
+def simple_status_page(job_id):
+    """Simple status page that can be refreshed manually"""
+    try:
+        progress = progress_tracker.get_progress(job_id)
+        if not progress:
+            return f"""
+            <html><body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2>Job Not Found</h2>
+            <p>Job ID: {job_id}</p>
+            <p>The job may have completed, failed, or expired.</p>
+            <a href="/">← Back to Analysis</a>
+            </body></html>
+            """, 404
+        
+        status_color = {
+            'started': '#3B82F6',
+            'running': '#3B82F6', 
+            'completed': '#10B981',
+            'failed': '#EF4444'
+        }.get(progress.get('status', 'unknown'), '#6B7280')
+        
+        return f"""
+        <html>
+        <head>
+            <title>Analysis Status - {job_id}</title>
+            <meta http-equiv="refresh" content="10">
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }}
+                .progress-bar {{ width: 100%; height: 20px; background: #E5E7EB; border-radius: 10px; overflow: hidden; }}
+                .progress-fill {{ height: 100%; background: {status_color}; transition: width 0.3s; }}
+                .status {{ padding: 10px; margin: 10px 0; border-radius: 5px; background: #F3F4F6; }}
+                .timestamp {{ color: #6B7280; font-size: 0.9em; }}
+            </style>
+        </head>
+        <body>
+            <h1>Brand Analysis Status</h1>
+            <p><strong>Job ID:</strong> {job_id}</p>
+            
+            <div class="status">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span><strong>Status:</strong> {progress.get('status', 'Unknown').title()}</span>
+                    <span><strong>Progress:</strong> {progress.get('progress', 0):.1f}%</span>
+                </div>
+                
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {progress.get('progress', 0)}%"></div>
+                </div>
+                
+                <p><strong>Current Task:</strong> {progress.get('message', 'No message')}</p>
+                
+                {f'<p><strong>Error:</strong> {progress.get("error")}</p>' if progress.get('error') else ''}
+                
+                {f'<p><strong>Estimated Time Remaining:</strong> {int(progress.get("estimated_completion", 0) / 60)} minutes</p>' if progress.get('estimated_completion') else ''}
+                
+                <p class="timestamp">Last updated: {time.strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p class="timestamp">Page auto-refreshes every 10 seconds</p>
+            </div>
+            
+            {f'<p><a href="/api/result/{job_id}" style="background: #10B981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Download Report</a></p>' if progress.get('status') == 'completed' else ''}
+            
+            <p><a href="/">← Start New Analysis</a></p>
+        </body>
+        </html>
+        """
+        
+    except Exception as e:
+        return f"""
+        <html><body style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2>Error</h2>
+        <p>Could not get status for job: {job_id}</p>
+        <p>Error: {str(e)}</p>
+        <a href="/">← Back to Analysis</a>
+        </body></html>
+        """, 500
+
 @app.route('/api/analyze', methods=['POST'])
 def start_analysis():
     """Start a new brand analysis job"""
