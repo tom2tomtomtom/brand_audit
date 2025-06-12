@@ -1,5 +1,12 @@
 import openai
+from openai import OpenAI
 import pandas as pd
+import os
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# For backward compatibility
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def extract_main_takeaways(article_text):
     """
@@ -20,9 +27,9 @@ def extract_main_takeaways(article_text):
         }
     ]
 
-    # Using the same call style as your original code
-    response = openai.chat.completions.create(
-        model="gpt-4o-mini",  # Replace with your own model name
+    # Using the new client
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
         messages=messages,
         temperature=0,
         max_tokens=100
@@ -54,7 +61,7 @@ def main():
             }
         ]
 
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
             temperature=0,

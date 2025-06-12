@@ -1,11 +1,15 @@
 import requests
 from bs4 import BeautifulSoup
 import openai
+from openai import OpenAI
 import pandas as pd
 import os
 import json
 import re
 
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# For backward compatibility
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 MAX_CONTENT_LENGTH = 12000
@@ -51,7 +55,8 @@ def extract_info_from_openai(text):
     ]
 
     try:
-        response = openai.chat.completions.create(
+        # Use the new OpenAI client
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
             temperature=0.5,
