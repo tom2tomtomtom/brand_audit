@@ -38,6 +38,18 @@ def index():
     """Serve the main application page"""
     return render_template('index.html')
 
+@app.route('/debug/routes')
+def debug_routes():
+    """Debug endpoint to show all registered routes"""
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            'endpoint': rule.endpoint,
+            'methods': list(rule.methods),
+            'rule': str(rule)
+        })
+    return jsonify(routes)
+
 @app.route('/api/analyze', methods=['POST'])
 def start_analysis():
     """Start a new brand analysis job"""
@@ -130,7 +142,6 @@ def run_analysis(job_id, brands):
         
         # Step 1: Scrape all brands
         progress_tracker.update_progress(job_id, 0, "Initializing web scraper...")
-        time.sleep(2)  # Realistic initialization time
         
         for i, brand_url in enumerate(brands):
             brand_name = extract_brand_name(brand_url)
@@ -141,40 +152,36 @@ def run_analysis(job_id, brands):
                 f"Scraping {brand_name}..."
             )
             
-            # Scrape brand website with realistic timing
+            # Scrape brand website - real timing from actual scraping
             brand_data = scraper.scrape_brand(brand_url, brand_name)
             all_brand_data.append(brand_data)
             
-            # Realistic per-brand scraping time: 1-2 minutes
-            time.sleep(60 + (i * 20))  # 60s + incremental delay
+            # No artificial delays - actual scraping provides natural timing
         
         # Step 2: Analyze all brands
         progress_tracker.update_progress(job_id, 40, "Analyzing brand data with AI...")
-        time.sleep(10)  # Analysis preparation time
         
         analysis_results = []
         for i, brand_data in enumerate(all_brand_data):
             progress_tracker.update_progress(
                 job_id,
                 40 + ((i / len(brands)) * 40),  # Analysis takes another 40%
-                f"Analyzing {brand_data['name']} with GPT-4..."
+                f"Analyzing {brand_data['name']} with AI..."
             )
             
+            # Real AI analysis - timing depends on actual OpenAI API calls
             analysis = analyzer.analyze_brand(brand_data)
             analysis_results.append(analysis)
             
-            # Realistic AI analysis time per brand: 30-60 seconds
-            time.sleep(45)
+            # No artificial delays - actual AI analysis provides natural timing
         
         # Step 3: Generate comparative analysis
         progress_tracker.update_progress(job_id, 80, "Generating competitive insights...")
-        time.sleep(15)
         
         comparative_analysis = analyzer.generate_comparative_analysis(analysis_results)
         
         # Step 4: Generate PDF report
         progress_tracker.update_progress(job_id, 90, "Creating PDF report...")
-        time.sleep(10)
         
         # Ensure results directory exists
         os.makedirs("results", exist_ok=True)
