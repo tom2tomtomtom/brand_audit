@@ -1,11 +1,12 @@
+[providers]
+python = "3.11"
+
 [phases.setup]
-nixPkgs = ['python39', 'chromium', 'chromedriver']
+nixPkgs = ["python311", "python311Packages.pip"]
 
 [phases.install]
-cmds = ['pip install -r requirements.txt']
-
-[phases.build]
-cmds = ['mkdir -p results', 'mkdir -p static', 'mkdir -p templates']
+cmds = ["pip install --no-cache-dir -r requirements-prod.txt"]
 
 [start]
-cmd = 'python wsgi.py'
+cmd = "python railway_app.py"
+EOF < /dev/null
