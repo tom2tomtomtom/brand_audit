@@ -50,30 +50,49 @@ def debug_routes():
         })
     return jsonify(routes)
 
+@app.route('/api/test', methods=['GET', 'POST'])
+def test_api():
+    """Test endpoint to verify API is working"""
+    return jsonify({
+        'status': 'success',
+        'message': 'API endpoints are working',
+        'method': request.method,
+        'timestamp': time.time()
+    })
+
 @app.route('/api/analyze', methods=['POST'])
 def start_analysis():
     """Start a new brand analysis job"""
     try:
+        logger.info("Received analysis request")
         data = request.get_json()
+        logger.info(f"Request data: {data}")
         
         # Validate input
         if not data or 'brands' not in data:
+            logger.error("Missing brands data in request")
             return jsonify({'error': 'Missing brands data'}), 400
         
         brands = data['brands']
+        logger.info(f"Brands to analyze: {brands}")
+        
         if not isinstance(brands, list) or len(brands) < 3 or len(brands) > 5:
+            logger.error(f"Invalid number of brands: {len(brands) if isinstance(brands, list) else 'not a list'}")
             return jsonify({'error': 'Must provide 3-5 brand URLs'}), 400
         
         # Validate URLs
         for brand in brands:
             if not isinstance(brand, str) or not brand.startswith(('http://', 'https://')):
+                logger.error(f"Invalid URL: {brand}")
                 return jsonify({'error': f'Invalid URL: {brand}'}), 400
         
         # Create analysis job
         job_id = f"analysis_{int(time.time())}"
+        logger.info(f"Created job ID: {job_id}")
         
         # Initialize progress tracking
         progress_tracker.init_job(job_id, len(brands))
+        logger.info(f"Initialized progress tracking for job {job_id}")
         
         # Start analysis in background thread
         analysis_thread = threading.Thread(
@@ -82,6 +101,7 @@ def start_analysis():
         )
         analysis_thread.daemon = True
         analysis_thread.start()
+        logger.info(f"Started analysis thread for job {job_id}")
         
         return jsonify({
             'job_id': job_id,
@@ -90,22 +110,33 @@ def start_analysis():
         })
         
     except Exception as e:
-        logger.error(f"Error starting analysis: {str(e)}")
-        return jsonify({'error': 'Failed to start analysis'}), 500
+        logger.error(f"Error starting analysis: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to start analysis: {str(e)}'}), 500
 
 @app.route('/api/progress/<job_id>')
 def get_progress(job_id):
     """Get current progress of an analysis job"""
     try:
+        logger.info(f"Getting progress for job: {job_id}")
         progress = progress_tracker.get_progress(job_id)
-        if not progress:
-            return jsonify({'error': 'Job not found'}), 404
         
+        if not progress:
+            logger.warning(f"Job not found: {job_id}")
+            # List all active jobs for debugging
+            active_jobs = list(progress_tracker.jobs.keys())
+            logger.info(f"Active jobs: {active_jobs}")
+            return jsonify({
+                'error': 'Job not found',
+                'job_id': job_id,
+                'active_jobs': active_jobs
+            }), 404
+        
+        logger.info(f"Progress for {job_id}: {progress.get('progress', 0)}%")
         return jsonify(progress)
         
     except Exception as e:
-        logger.error(f"Error getting progress: {str(e)}")
-        return jsonify({'error': 'Failed to get progress'}), 500
+        logger.error(f"Error getting progress for {job_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to get progress: {str(e)}'}), 500
 
 @app.route('/api/result/<job_id>')
 def get_result(job_id):
@@ -133,9 +164,17 @@ def run_analysis(job_id, brands):
         logger.info(f"Starting analysis job {job_id} for {len(brands)} brands")
         
         # Initialize components
+        logger.info("Initializing scraper...")
         scraper = WebScraper()
+        logger.info("Scraper initialized successfully")
+        
+        logger.info("Initializing analyzer...")
         analyzer = BrandAnalyzer()
+        logger.info("Analyzer initialized successfully")
+        
+        logger.info("Initializing report generator...")
         report_generator = ReportGenerator()
+        logger.info("Report generator initialized successfully")
         
         # Store scraped data for all brands
         all_brand_data = []
@@ -145,6 +184,7 @@ def run_analysis(job_id, brands):
         
         for i, brand_url in enumerate(brands):
             brand_name = extract_brand_name(brand_url)
+            logger.info(f"Processing brand {i+1}/{len(brands)}: {brand_name} ({brand_url})")
             
             progress_tracker.update_progress(
                 job_id, 
@@ -152,9 +192,17 @@ def run_analysis(job_id, brands):
                 f"Scraping {brand_name}..."
             )
             
-            # Scrape brand website - real timing from actual scraping
-            brand_data = scraper.scrape_brand(brand_url, brand_name)
-            all_brand_data.append(brand_data)
+            try:
+                # Scrape brand website - real timing from actual scraping
+                logger.info(f"Starting scrape for {brand_name}")
+                brand_data = scraper.scrape_brand(brand_url, brand_name)
+                all_brand_data.append(brand_data)
+                logger.info(f"Successfully scraped {brand_name}")
+                
+            except Exception as e:
+                logger.error(f"Failed to scrape {brand_name}: {str(e)}")
+                # Continue with other brands instead of failing completely
+                continue
             
             # No artificial delays - actual scraping provides natural timing
         
