@@ -35,12 +35,39 @@ class WebScraper:
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--disable-plugins')
+            chrome_options.add_argument('--disable-images')
+            chrome_options.add_argument('--disable-javascript')
             chrome_options.add_argument('--window-size=1920,1080')
-            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+            chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
             
-            service = Service(ChromeDriverManager().install())
+            # Railway-specific optimizations
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
+            chrome_options.add_argument('--disable-features=TranslateUI')
+            chrome_options.add_argument('--disable-ipc-flooding-protection')
+            
+            # Try to use system Chrome on Railway, fallback to ChromeDriverManager
+            import os
+            import shutil
+            
+            chrome_path = shutil.which('chrome') or shutil.which('chromium') or shutil.which('google-chrome')
+            
+            if chrome_path:
+                chrome_options.binary_location = chrome_path
+                # Use system chromedriver if available
+                chromedriver_path = shutil.which('chromedriver')
+                if chromedriver_path:
+                    service = Service(chromedriver_path)
+                else:
+                    service = Service(ChromeDriverManager().install())
+            else:
+                service = Service(ChromeDriverManager().install())
+            
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            self.driver.set_page_load_timeout(30)
+            self.driver.set_page_load_timeout(45)  # Increased timeout for Railway
             
             logger.info("Chrome WebDriver initialized successfully")
             

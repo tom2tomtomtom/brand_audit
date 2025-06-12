@@ -1,14 +1,16 @@
 # Gunicorn configuration for production deployment
+import os
 
-# Server socket
-bind = "0.0.0.0:8000"
+# Server socket - Railway uses PORT environment variable
+port = os.environ.get("PORT", "8000")
+bind = f"0.0.0.0:{port}"
 backlog = 2048
 
-# Worker processes
-workers = 4
-worker_class = "sync"
+# Worker processes - Optimized for Railway
+workers = int(os.environ.get("WEB_CONCURRENCY", "2"))
+worker_class = "sync" 
 worker_connections = 1000
-timeout = 30
+timeout = 120  # Increased for longer analysis requests
 keepalive = 2
 max_requests = 1000
 max_requests_jitter = 100
