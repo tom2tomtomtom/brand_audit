@@ -1,0 +1,20 @@
+# Ignore heavy dependencies for Railway deployment
+requirements.txt
+requirements_enhanced.txt
+enhanced_*.py
+competitive_grid_generator.py
+live_brand_grid_generator.py
+pure_live_grid_generator.py
+test_*.py
+Project/
+frontend/
+*.html
+*.json
+*.csv
+*.log
+__pycache__/
+.env
+results/
+*.png
+*.jpeg
+*.jpg

@@ -4,9 +4,13 @@ python = "3.11"
 [phases.setup]
 nixPkgs = ["python311", "python311Packages.pip"]
 
-[phases.install]
-cmds = ["pip install --no-cache-dir -r requirements-prod.txt"]
+[phases.install] 
+cmds = [
+  "pip install --no-cache-dir flask==3.0.3",
+  "pip install --no-cache-dir flask-cors==5.0.0", 
+  "pip install --no-cache-dir python-dotenv==1.0.1",
+  "pip install --no-cache-dir gunicorn==22.0.0"
+]
 
 [start]
 cmd = "python railway_app.py"
-EOF < /dev/null
