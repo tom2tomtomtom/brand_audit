@@ -321,19 +321,31 @@
             
             progressInterval = setInterval(async () => {
                 try {
-                    const response = await fetch(`/api/progress/${currentJobId}`);
+                    // Add timeout to fetch request
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                    
+                    const response = await fetch(`/api/progress/${currentJobId}`, {
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    
                     const progress = await response.json();
                     
                     if (!response.ok) {
+                        if (response.status === 404) {
+                            throw new Error('Analysis job not found. It may have been cleaned up or expired.');
+                        }
                         throw new Error(progress.error || 'Failed to get progress');
                     }
                     
                     updateProgress(progress.progress, progress.message);
                     updateAnalysisSteps(progress.progress);
                     
-                    if (progress.estimated_time_remaining) {
+                    if (progress.estimated_completion) {
+                        const minutes = Math.ceil(progress.estimated_completion / 60);
                         document.getElementById('estimated-time').textContent = 
-                            `${progress.estimated_time_remaining} remaining`;
+                            `~${minutes} minutes remaining`;
                     }
                     
                     if (progress.status === 'completed') {
@@ -341,15 +353,39 @@
                         showResults();
                     } else if (progress.status === 'failed') {
                         clearInterval(progressInterval);
-                        showError(progress.error || 'Analysis failed');
+                        let errorMsg = progress.error || 'Analysis failed';
+                        
+                        // Check for specific error types
+                        if (errorMsg.includes('OpenAI API key')) {
+                            errorMsg = 'Analysis requires a valid OpenAI API key. Please add your API key in Railway dashboard under Variables: OPENAI_API_KEY=your_key_here';
+                        } else if (errorMsg.includes('Failed to extract meaningful content')) {
+                            errorMsg = 'Could not extract enough content from the provided websites. Please check the URLs are correct and accessible.';
+                        }
+                        
+                        showError(errorMsg);
                     }
                     
                 } catch (error) {
                     console.error('Error polling progress:', error);
+                    
+                    if (error.name === 'AbortError') {
+                        console.log('Request timed out, retrying...');
+                        // Don't stop polling on timeout, just log it
+                        return;
+                    }
+                    
                     clearInterval(progressInterval);
-                    showError('Failed to track progress. Please refresh and try again.');
+                    
+                    let errorMessage = 'Connection lost. ';
+                    if (error.message.includes('fetch')) {
+                        errorMessage += 'The analysis is still running but connection timed out. Please refresh the page and check back in a few minutes.';
+                    } else {
+                        errorMessage += error.message;
+                    }
+                    
+                    showError(errorMessage);
                 }
-            }, 2000); // Poll every 2 seconds
+            }, 3000); // Poll every 3 seconds (reduced frequency)
         }
 
         function updateProgress(percentage, message) {
@@ -496,7 +532,8 @@
                 deploymentNotice.className = 'mt-6 p-4 bg-green-50 rounded-lg border border-green-200';
                 platformMessage.innerHTML = `
                     <strong>✅ Railway Deployment Detected</strong><br>
-                    Full functionality available. Analysis will take 5-10 minutes.
+                    Full functionality available. Analysis will take 5-10 minutes.<br>
+                    <span class="text-sm text-green-600 mt-1 block">💡 For enhanced AI analysis, add OpenAI API key in Railway Variables</span>
                 `;
             } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
                 deploymentNotice.className = 'mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200';
