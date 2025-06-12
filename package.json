@@ -10,10 +10,12 @@
     "export": "next build && next export"
   },
   "dependencies": {
+    "@playwright/test": "^1.53.0",
     "colorthief": "^2.6.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "next": "15.3.3",
+    "playwright": "^1.53.0",
     "puppeteer": "^24.10.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

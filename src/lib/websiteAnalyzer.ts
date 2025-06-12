@@ -17,61 +17,173 @@ interface WebsiteData {
 }
 
 export async function analyzeWebsite(url: string): Promise<WebsiteData> {
+  const { chromium } = await import('playwright');
+  let browser;
+  
   try {
-    console.log(`🌐 STARTING REAL SERVER-SIDE FETCH for: ${url}`);
+    console.log(`🚀 STARTING REAL PLAYWRIGHT BROWSER ANALYSIS for: ${url}`);
     const startTime = Date.now();
     
-    // Direct server-side fetch (no CORS issues in API routes)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; BrandAuditBot/1.0; +https://brandaudit.app)',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Cache-Control': 'no-cache',
-      },
-      signal: controller.signal,
+    // Launch browser with real rendering
+    console.log(`🌐 Launching browser...`);
+    browser = await chromium.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
-    clearTimeout(timeoutId);
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      viewport: { width: 1920, height: 1080 }
+    });
     
-    const fetchTime = Date.now() - startTime;
-    console.log(`📡 Fetch completed in ${fetchTime}ms`);
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const html = await response.text();
-    console.log(`✅ Successfully fetched ${html.length} characters from ${url}`);
-
-    // Parse HTML content with thorough analysis
-    console.log(`🔍 Starting thorough content analysis...`);
-    const analysisStart = Date.now();
+    const page = await context.newPage();
     
-    const websiteData = parseHTMLContent(html, url);
+    // Set reasonable timeout
+    page.setDefaultTimeout(30000);
+    
+    console.log(`📡 Navigating to ${url}...`);
+    const navigationStart = Date.now();
+    
+    // Navigate to the website with real browser rendering
+    await page.goto(url, { waitUntil: 'networkidle' });
+    
+    const navigationTime = Date.now() - navigationStart;
+    console.log(`✅ Page loaded in ${navigationTime}ms`);
+    
+    // Extract comprehensive data using browser APIs
+    console.log(`🔍 Extracting comprehensive website data...`);
+    const extractionStart = Date.now();
+    
+    const websiteData = await extractWebsiteDataWithPlaywright(page, url);
+    
+    const extractionTime = Date.now() - extractionStart;
+    console.log(`📊 Data extraction completed in ${extractionTime}ms`);
     
     // Add realistic processing time for thorough analysis
-    const minAnalysisTime = 3000; // Minimum 3 seconds for analysis
-    const analysisTime = Date.now() - analysisStart;
-    if (analysisTime < minAnalysisTime) {
-      const remainingTime = minAnalysisTime - analysisTime;
-      console.log(`⏱️ Adding ${remainingTime}ms for thorough analysis...`);
+    const minAnalysisTime = 2000; // Minimum 2 seconds for analysis
+    const totalProcessingTime = Date.now() - startTime;
+    if (totalProcessingTime < minAnalysisTime) {
+      const remainingTime = minAnalysisTime - totalProcessingTime;
+      console.log(`⏱️ Adding ${remainingTime}ms for thorough processing...`);
       await new Promise(resolve => setTimeout(resolve, remainingTime));
     }
     
     const totalTime = Date.now() - startTime;
-    console.log(`✅ Complete analysis finished in ${totalTime}ms`);
+    console.log(`✅ Complete Playwright analysis finished in ${totalTime}ms`);
     
     return websiteData;
 
   } catch (error) {
-    console.error(`❌ REAL FETCH FAILED for ${url}:`, error);
+    console.error(`❌ PLAYWRIGHT ANALYSIS FAILED for ${url}:`, error);
+    throw new Error(`Failed to analyze website ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  } finally {
+    if (browser) {
+      await browser.close();
+      console.log(`🔒 Browser closed`);
+    }
+  }
+}
+
+async function extractWebsiteDataWithPlaywright(page: any, url: string): Promise<WebsiteData> {
+  // Extract title using browser APIs
+  const title = await page.title() || '';
+  
+  // Extract meta description
+  const metaDescription = await page.locator('meta[name="description"]').getAttribute('content') || '';
+  
+  // Extract meta keywords  
+  const metaKeywords = await page.locator('meta[name="keywords"]').getAttribute('content') || '';
+  
+  // Extract all headings
+  const headings = await page.locator('h1, h2, h3, h4, h5, h6').allTextContents();
+  
+  // Extract main content text
+  const content = await page.locator('body').textContent() || '';
+  
+  // Extract all links
+  const linkElements = await page.locator('a[href]').all();
+  const links = [];
+  for (const link of linkElements.slice(0, 50)) { // Limit to first 50 links
+    const href = await link.getAttribute('href');
+    if (href) links.push(href);
+  }
+  
+  // Extract all images
+  const imageElements = await page.locator('img[src]').all();
+  const images = [];
+  for (const img of imageElements.slice(0, 20)) { // Limit to first 20 images
+    const src = await img.getAttribute('src');
+    if (src) images.push(src);
+  }
+  
+  // Detect industry based on content
+  const detectedIndustry = detectIndustryFromContent(`${title} ${metaDescription} ${content}`);
+  
+  // Extract recent content indicators
+  const recentContent = await extractRecentContentWithPlaywright(page);
+  
+  // Get performance metrics
+  const performance = await getPerformanceMetrics(page);
+  
+  return {
+    url,
+    title,
+    metaDescription,
+    metaKeywords,
+    headings: headings.slice(0, 10), // Top 10 headings
+    content: content.slice(0, 5000), // First 5000 characters
+    links: links.slice(0, 30),
+    images: images.slice(0, 15),
+    detectedIndustry,
+    recentContent,
+    performance
+  };
+}
+
+async function extractRecentContentWithPlaywright(page: any): Promise<any[]> {
+  const recentContent = [];
+  
+  try {
+    // Look for news/blog sections
+    const newsSelectors = [
+      '[class*="news"]', '[class*="blog"]', '[class*="update"]', 
+      '[class*="press"]', '[class*="announcement"]'
+    ];
     
-    // Don't return fake data - throw the error so the API knows it failed
-    throw new Error(`Failed to fetch website ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    for (const selector of newsSelectors) {
+      const elements = await page.locator(selector).all();
+      for (const element of elements.slice(0, 3)) {
+        const text = await element.textContent();
+        if (text && text.length > 50) {
+          recentContent.push({
+            type: 'news',
+            title: text.slice(0, 100),
+            date: 'Recent',
+            source: 'website'
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.log('Error extracting recent content:', error);
+  }
+  
+  return recentContent.slice(0, 5);
+}
+
+async function getPerformanceMetrics(page: any): Promise<any> {
+  try {
+    const metrics = await page.evaluate(() => ({
+      loadTime: performance.timing?.loadEventEnd - performance.timing?.navigationStart || 0,
+      domElements: document.getElementsByTagName('*').length
+    }));
+    
+    return {
+      loadTime: metrics.loadTime,
+      pageSize: metrics.domElements
+    };
+  } catch (error) {
+    return { loadTime: 0, pageSize: 0 };
   }
 }
 
