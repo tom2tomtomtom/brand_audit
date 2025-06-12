@@ -1,0 +1,7 @@
+# Minimal requirements for Netlify Functions
+# Note: Netlify Functions have limited package support
+# Full functionality requires Docker/server deployment
+
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.3.0

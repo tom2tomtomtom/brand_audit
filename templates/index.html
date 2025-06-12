@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Competitor Analysis Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .progress-bar {
+            transition: width 0.3s ease-in-out;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">Brand Competitor Analysis</h1>
+            <p class="text-xl text-gray-600">Professional brand audit and competitive intelligence reports</p>
+            
+            <!-- Deployment Status Notice -->
+            <div id="deployment-notice" class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p class="text-yellow-800 text-sm font-medium mb-2">⚠️ Deployment Platform Detection</p>
+                <p class="text-yellow-700 text-sm" id="platform-message">
+                    Checking deployment environment...
+                </p>
+            </div>
+            
+            <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p class="text-blue-800 text-sm">
+                    <strong>Analysis Time:</strong> 5-10 minutes total • 
+                    <strong>Report Format:</strong> Professional PDF • 
+                    <strong>Brands:</strong> 3-5 competitors
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Form -->
+        <div id="input-section" class="bg-white rounded-lg shadow-lg p-8 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Enter Competitor Brand URLs</h2>
+            
+            <form id="analysis-form" class="space-y-4">
+                <div class="grid gap-4">
+                    <div class="input-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand 1 *</label>
+                        <input 
+                            type="url" 
+                            name="brand1" 
+                            required 
+                            placeholder="https://example-competitor.com"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                        />
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand 2 *</label>
+                        <input 
+                            type="url" 
+                            name="brand2" 
+                            required 
+                            placeholder="https://another-competitor.com"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                        />
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand 3 *</label>
+                        <input 
+                            type="url" 
+                            name="brand3" 
+                            required 
+                            placeholder="https://third-competitor.com"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                        />
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand 4 (Optional)</label>
+                        <input 
+                            type="url" 
+                            name="brand4" 
+                            placeholder="https://fourth-competitor.com"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                        />
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand 5 (Optional)</label>
+                        <input 
+                            type="url" 
+                            name="brand5" 
+                            placeholder="https://fifth-competitor.com"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+                        />
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <button 
+                        type="submit" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-lg transition duration-200 shadow-lg hover:shadow-xl"
+                    >
+                        Start Brand Analysis
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-6 text-sm text-gray-500">
+                <p><strong>What we analyze:</strong> Brand positioning • Visual identity • Content strategy • User experience • Competitive strengths</p>
+                <p class="mt-2"><strong>Report includes:</strong> Executive summary • Individual brand profiles • Competitive benchmarking • Strategic recommendations</p>
+            </div>
+        </div>
+
+        <!-- Progress Section (Hidden initially) -->
+        <div id="progress-section" class="hidden bg-white rounded-lg shadow-lg p-8 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Analysis in Progress</h2>
+            
+            <div class="space-y-6">
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div id="progress-bar" class="bg-blue-600 h-3 rounded-full progress-bar" style="width: 0%"></div>
+                </div>
+                
+                <!-- Progress Info -->
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span id="progress-percentage">0%</span>
+                    <span id="estimated-time">Calculating...</span>
+                </div>
+                
+                <!-- Current Status -->
+                <div class="flex items-center space-x-3">
+                    <div id="status-spinner" class="spinner"></div>
+                    <span id="current-status" class="text-gray-700">Initializing analysis...</span>
+                    <span id="connection-status" class="text-xs text-gray-500 hidden">🔄 Reconnecting...</span>
+                </div>
+                
+                <!-- Brand Progress -->
+                <div id="brand-progress" class="space-y-2">
+                    <!-- Dynamic brand progress items will be added here -->
+                </div>
+                
+                <!-- Analysis Steps -->
+                <div class="mt-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Analysis Process</h3>
+                    <div class="space-y-3">
+                        <div id="step-scraping" class="flex items-center space-x-3">
+                            <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                <div class="w-2 h-2 bg-blue-600 rounded-full"></div>
+                            </div>
+                            <span class="text-gray-700">Deep website scraping and content extraction</span>
+                        </div>
+                        <div id="step-analysis" class="flex items-center space-x-3">
+                            <div class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                                <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                            </div>
+                            <span class="text-gray-500">AI-powered brand analysis and insights</span>
+                        </div>
+                        <div id="step-comparison" class="flex items-center space-x-3">
+                            <div class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                                <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                            </div>
+                            <span class="text-gray-500">Competitive comparison and benchmarking</span>
+                        </div>
+                        <div id="step-report" class="flex items-center space-x-3">
+                            <div class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                                <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                            </div>
+                            <span class="text-gray-500">Professional PDF report generation</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section (Hidden initially) -->
+        <div id="results-section" class="hidden bg-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Analysis Complete!</h2>
+            
+            <div class="text-center space-y-6">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full">
+                    <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Your Brand Analysis Report is Ready</h3>
+                    <p class="text-gray-600">Comprehensive competitive analysis with actionable insights and strategic recommendations.</p>
+                </div>
+                
+                <div class="space-y-4">
+                    <button 
+                        id="download-report" 
+                        class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition duration-200 shadow-lg hover:shadow-xl"
+                    >
+                        Download PDF Report
+                    </button>
+                    
+                    <div>
+                        <button 
+                            id="start-new-analysis" 
+                            class="text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                            Start New Analysis
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Section (Hidden initially) -->
+        <div id="error-section" class="hidden bg-red-50 border border-red-200 rounded-lg p-6">
+            <div class="flex items-center space-x-3">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div>
+                    <h3 class="text-lg font-medium text-red-900">Analysis Error</h3>
+                    <p id="error-message" class="text-red-700"></p>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button 
+                    id="retry-analysis" 
+                    class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded"
+                >
+                    Try Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentJobId = null;
+        let progressInterval = null;
+        let timeoutCount = 0;
+        let pollingInterval = 3000; // Start with 3 seconds
+
+        // Form submission handler
+        document.getElementById('analysis-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Collect brand URLs
+            const formData = new FormData(e.target);
+            const brands = [];
+            
+            for (let i = 1; i <= 5; i++) {
+                const brandUrl = formData.get(`brand${i}`);
+                if (brandUrl && brandUrl.trim()) {
+                    brands.push(brandUrl.trim());
+                }
+            }
+            
+            if (brands.length < 3) {
+                alert('Please enter at least 3 brand URLs.');
+                return;
+            }
+            
+            // Start analysis
+            await startAnalysis(brands);
+        });
+
+        async function startAnalysis(brands) {
+            try {
+                // Show progress section
+                showSection('progress-section');
+                
+                // Reset progress
+                updateProgress(0, 'Starting analysis...');
+                resetAnalysisSteps();
+                
+                // Start analysis
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ brands: brands })
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to start analysis');
+                }
+                
+                currentJobId = result.job_id;
+                
+                // Start polling for progress
+                startProgressPolling();
+                
+            } catch (error) {
+                console.error('Error starting analysis:', error);
+                showError(error.message);
+            }
+        }
+
+        function startProgressPolling() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+            
+            progressInterval = setInterval(async () => {
+                try {
+                    // Add timeout to fetch request
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                    
+                    const response = await fetch(`/api/progress/${currentJobId}`, {
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    
+                    const progress = await response.json();
+                    
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            throw new Error('Analysis job not found. It may have been cleaned up or expired.');
+                        }
+                        throw new Error(progress.error || 'Failed to get progress');
+                    }
+                    
+                    updateProgress(progress.progress, progress.message);
+                    updateAnalysisSteps(progress.progress);
+                    
+                    if (progress.estimated_completion) {
+                        const minutes = Math.ceil(progress.estimated_completion / 60);
+                        document.getElementById('estimated-time').textContent = 
+                            `~${minutes} minutes remaining`;
+                    }
+                    
+                    if (progress.status === 'completed') {
+                        clearInterval(progressInterval);
+                        showResults();
+                    } else if (progress.status === 'failed') {
+                        clearInterval(progressInterval);
+                        let errorMsg = progress.error || 'Analysis failed';
+                        
+                        // Check for specific error types
+                        if (errorMsg.includes('OpenAI API key')) {
+                            errorMsg = 'Analysis requires a valid OpenAI API key. Please add your API key in Railway dashboard under Variables: OPENAI_API_KEY=your_key_here';
+                        } else if (errorMsg.includes('Failed to extract meaningful content')) {
+                            errorMsg = 'Could not extract enough content from the provided websites. Please check the URLs are correct and accessible.';
+                        }
+                        
+                        showError(errorMsg);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error polling progress:', error);
+                    
+                    if (error.name === 'AbortError' || error.message.includes('Failed to fetch') || error.message.includes('ERR_TIMED_OUT')) {
+                        timeoutCount++;
+                        console.log(`Request timed out (${timeoutCount} times), continuing to poll...`);
+                        
+                        // Adaptive polling - increase interval after timeouts
+                        if (timeoutCount > 3) {
+                            pollingInterval = Math.min(pollingInterval * 1.5, 15000); // Max 15 seconds
+                            clearInterval(progressInterval);
+                            progressInterval = setInterval(arguments.callee, pollingInterval);
+                        }
+                        
+                        // Show user-friendly message and connection status
+                        const currentProgress = document.getElementById('progress-bar').style.width.replace('%', '') || 0;
+                        updateProgress(currentProgress, 'Analysis running...');
+                        
+                        // Show reconnecting indicator
+                        const connectionStatus = document.getElementById('connection-status');
+                        connectionStatus.textContent = `🔄 Reconnecting... (${Math.round(pollingInterval/1000)}s)`;
+                        connectionStatus.classList.remove('hidden');
+                        
+                        return; // Continue polling
+                    } else {
+                        // Reset timeout count on successful request
+                        timeoutCount = 0;
+                        pollingInterval = 3000;
+                        
+                        // Hide reconnecting indicator on successful request
+                        document.getElementById('connection-status').classList.add('hidden');
+                    }
+                    
+                    // Only stop polling for genuine errors (not timeouts)
+                    clearInterval(progressInterval);
+                    showError(error.message || 'Analysis failed');
+                }
+            }, pollingInterval); // Use adaptive polling interval
+        }
+
+        function updateProgress(percentage, message) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-percentage');
+            const statusText = document.getElementById('current-status');
+            
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${Math.round(percentage)}%`;
+            statusText.textContent = message;
+        }
+
+        function updateAnalysisSteps(progress) {
+            const steps = [
+                { id: 'step-scraping', threshold: 0 },
+                { id: 'step-analysis', threshold: 40 },
+                { id: 'step-comparison', threshold: 80 },
+                { id: 'step-report', threshold: 90 }
+            ];
+            
+            steps.forEach(step => {
+                const element = document.getElementById(step.id);
+                const circle = element.querySelector('.w-6.h-6');
+                const dot = element.querySelector('.w-2.h-2');
+                const text = element.querySelector('span');
+                
+                if (progress >= step.threshold) {
+                    circle.className = 'w-6 h-6 bg-green-100 rounded-full flex items-center justify-center';
+                    dot.className = 'w-2 h-2 bg-green-600 rounded-full';
+                    text.className = 'text-gray-700';
+                } else {
+                    circle.className = 'w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center';
+                    dot.className = 'w-2 h-2 bg-gray-400 rounded-full';
+                    text.className = 'text-gray-500';
+                }
+            });
+        }
+
+        function resetAnalysisSteps() {
+            const steps = ['step-scraping', 'step-analysis', 'step-comparison', 'step-report'];
+            
+            steps.forEach(stepId => {
+                const element = document.getElementById(stepId);
+                const circle = element.querySelector('.w-6.h-6');
+                const dot = element.querySelector('.w-2.h-2');
+                const text = element.querySelector('span');
+                
+                circle.className = 'w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center';
+                dot.className = 'w-2 h-2 bg-gray-400 rounded-full';
+                text.className = 'text-gray-500';
+            });
+        }
+
+        function showResults() {
+            showSection('results-section');
+            
+            // Setup download button
+            document.getElementById('download-report').onclick = function() {
+                window.location.href = `/api/result/${currentJobId}`;
+            };
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            showSection('error-section');
+        }
+
+        function showSection(sectionId) {
+            // Hide all sections
+            const sections = ['input-section', 'progress-section', 'results-section', 'error-section'];
+            sections.forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            
+            // Show target section
+            document.getElementById(sectionId).classList.remove('hidden');
+            document.getElementById(sectionId).classList.add('fade-in');
+        }
+
+        // Retry and new analysis handlers
+        document.getElementById('retry-analysis').addEventListener('click', function() {
+            showSection('input-section');
+        });
+
+        document.getElementById('start-new-analysis').addEventListener('click', function() {
+            showSection('input-section');
+            
+            // Reset form
+            document.getElementById('analysis-form').reset();
+            currentJobId = null;
+            
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+        });
+
+        // Sample data buttons for testing
+        function loadSampleData() {
+            const samples = [
+                'https://wolterskluwer.com',
+                'https://medscape.com',
+                'https://uptodate.com'
+            ];
+            
+            samples.forEach((url, index) => {
+                const input = document.querySelector(`input[name="brand${index + 1}"]`);
+                if (input) {
+                    input.value = url;
+                }
+            });
+        }
+
+        // Deployment platform detection
+        function detectDeploymentPlatform() {
+            const hostname = window.location.hostname;
+            const deploymentNotice = document.getElementById('deployment-notice');
+            const platformMessage = document.getElementById('platform-message');
+            
+            if (hostname.includes('netlify.app') || hostname.includes('netlify.com')) {
+                deploymentNotice.className = 'mt-6 p-4 bg-red-50 rounded-lg border border-red-200';
+                platformMessage.innerHTML = `
+                    <strong>⚠️ Limited Functionality on Netlify</strong><br>
+                    This Flask application requires server-side processing. Netlify Functions have 15-second timeouts.<br>
+                    For full functionality, deploy on: <a href="#heroku" class="underline text-blue-600">Heroku</a>, 
+                    <a href="#railway" class="underline text-blue-600">Railway</a>, or 
+                    <a href="#docker" class="underline text-blue-600">Docker</a>
+                `;
+                
+                // Disable form on Netlify
+                const form = document.getElementById('analysis-form');
+                const submitButton = form.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+                submitButton.textContent = 'Requires Server Deployment';
+                submitButton.className = 'w-full bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg cursor-not-allowed';
+                
+            } else if (hostname.includes('herokuapp.com')) {
+                deploymentNotice.className = 'mt-6 p-4 bg-green-50 rounded-lg border border-green-200';
+                platformMessage.innerHTML = `
+                    <strong>✅ Heroku Deployment Detected</strong><br>
+                    Full functionality available. Analysis will take 5-10 minutes.
+                `;
+            } else if (hostname.includes('railway.app')) {
+                deploymentNotice.className = 'mt-6 p-4 bg-green-50 rounded-lg border border-green-200';
+                platformMessage.innerHTML = `
+                    <strong>✅ Railway Deployment Detected</strong><br>
+                    Full functionality available. Analysis will take 5-10 minutes.<br>
+                    <span class="text-sm text-green-600 mt-1 block">💡 For enhanced AI analysis, add OpenAI API key in Railway Variables</span>
+                `;
+            } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                deploymentNotice.className = 'mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200';
+                platformMessage.innerHTML = `
+                    <strong>🚀 Local Development Environment</strong><br>
+                    Full functionality available. Make sure you have OpenAI API key configured.
+                `;
+                
+                // Add sample data button for development
+                const sampleButton = document.createElement('button');
+                sampleButton.textContent = 'Load Sample Data (Dev)';
+                sampleButton.className = 'mt-4 text-sm bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded';
+                sampleButton.type = 'button';
+                sampleButton.onclick = loadSampleData;
+                document.getElementById('analysis-form').appendChild(sampleButton);
+            } else {
+                deploymentNotice.className = 'mt-6 p-4 bg-green-50 rounded-lg border border-green-200';
+                platformMessage.innerHTML = `
+                    <strong>✅ Server Deployment Detected</strong><br>
+                    Full functionality should be available.
+                `;
+            }
+        }
+        
+        // Run platform detection when page loads
+        document.addEventListener('DOMContentLoaded', detectDeploymentPlatform);
+    </script>
+</body>
+</html>
