@@ -16,12 +16,13 @@ echo "Display: $DISPLAY"
 echo "=========================="
 echo ""
 
-# Start the Flask app with gunicorn (reduced timeout, increased graceful timeout)
+# Start the Flask app with gunicorn (increased timeout for startup)
 exec gunicorn --bind 0.0.0.0:${PORT} \
     --workers 1 \
-    --timeout 120 \
-    --graceful-timeout 30 \
+    --timeout 300 \
+    --graceful-timeout 60 \
+    --preload \
     --access-logfile - \
     --error-logfile - \
-    --log-level debug \
+    --log-level info \
     railway_app:app

@@ -549,10 +549,7 @@ def index():
 @app.route('/health')
 def health():
     """Railway health check endpoint - simple and fast"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat()
-    }), 200
+    return 'OK', 200
 
 @app.route('/api/status')
 def api_status():
