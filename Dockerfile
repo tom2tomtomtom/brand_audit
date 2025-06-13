@@ -45,6 +45,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY strategic_competitive_intelligence.py .
 COPY railway_app.py .
+COPY railway_app_async.py .
 COPY railway_startup_check.py .
 COPY railway_health_only.py .
 COPY deep_scraper.py .

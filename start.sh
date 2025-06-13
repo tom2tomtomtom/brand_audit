@@ -19,10 +19,11 @@ echo ""
 # Start the Flask app with gunicorn (increased timeout for startup)
 exec gunicorn --bind 0.0.0.0:${PORT} \
     --workers 1 \
+    --threads 4 \
     --timeout 300 \
     --graceful-timeout 60 \
     --preload \
     --access-logfile - \
     --error-logfile - \
     --log-level info \
-    railway_app:app
+    railway_app_async:app
