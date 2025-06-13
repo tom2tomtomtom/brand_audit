@@ -16,8 +16,191 @@ import time
 try:
     from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
     SYSTEM_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    print(f"Strategic system not available: {e}")
     SYSTEM_AVAILABLE = False
+
+# Fallback lightweight competitive intelligence for Railway
+class RailwayCompetitiveIntelligence:
+    """Lightweight competitive intelligence for Railway deployment"""
+    
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+    
+    def generate_strategic_intelligence_report(self, urls, report_title="Competitive Analysis", output_filename=None):
+        """Generate a basic competitive report for Railway"""
+        if not output_filename:
+            output_filename = f"railway_report_{int(time.time())}.html"
+        
+        # Generate basic HTML report
+        html_content = self._generate_railway_report(urls, report_title)
+        
+        try:
+            with open(output_filename, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            return output_filename
+        except Exception as e:
+            print(f"Error generating report: {e}")
+            return None
+    
+    def _generate_railway_report(self, urls, title):
+        """Generate basic Railway-compatible report"""
+        brands_html = ""
+        
+        for i, url in enumerate(urls[:10], 1):
+            domain = self._extract_domain(url)
+            brands_html += f"""
+            <div class="brand-card">
+                <h3>{domain}</h3>
+                <p><strong>URL:</strong> {url}</p>
+                <p><strong>Status:</strong> Ready for full analysis</p>
+                <div class="note">Full competitive intelligence requires local deployment with Chrome browser.</div>
+            </div>
+            """
+        
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} - Railway Demo</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }}
+        .container {{
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            text-align: center;
+            margin-bottom: 40px;
+        }}
+        .title {{
+            font-size: 2.5em;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }}
+        .subtitle {{
+            color: #6c757d;
+            font-size: 1.2em;
+        }}
+        .brands-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }}
+        .brand-card {{
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            background: #f8f9fa;
+            transition: transform 0.2s ease;
+        }}
+        .brand-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }}
+        .brand-card h3 {{
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }}
+        .note {{
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #856404;
+        }}
+        .upgrade-notice {{
+            background: #d1ecf1;
+            border: 2px solid #bee5eb;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }}
+        .upgrade-notice h3 {{
+            color: #0c5460;
+            margin-bottom: 15px;
+        }}
+        .github-link {{
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 20px;
+        }}
+        .github-link:hover {{
+            background: #218838;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🎯 {title}</h1>
+            <p class="subtitle">Railway Demo - Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
+        </div>
+        
+        <div class="upgrade-notice">
+            <h3>🚀 Railway Demo Version</h3>
+            <p>This Railway deployment shows the web interface and basic functionality.</p>
+            <p><strong>For full competitive intelligence with:</strong></p>
+            <ul style="text-align: left; display: inline-block; margin: 15px 0;">
+                <li>🎨 Premium 6-row brand grids</li>
+                <li>🧠 McKinsey-level AI analysis</li>
+                <li>📊 Real web scraping & screenshots</li>
+                <li>🔤 Typography analysis</li>
+                <li>🎭 Visual gallery capture</li>
+            </ul>
+            <br>
+            <a href="https://github.com/tom2tomtomtom/brand_audit" class="github-link">
+                📂 Get Full System on GitHub
+            </a>
+        </div>
+        
+        <div class="brands-grid">
+            {brands_html}
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #e9ecef;">
+            <p style="color: #6c757d;">
+                <strong>Railway Deployment:</strong> Web interface functional<br>
+                <strong>Full Analysis:</strong> Requires local deployment with Chrome browser
+            </p>
+        </div>
+    </div>
+</body>
+</html>"""
+    
+    def _extract_domain(self, url):
+        """Extract domain name from URL"""
+        try:
+            from urllib.parse import urlparse
+            domain = urlparse(url).netloc
+            domain = domain.replace('www.', '')
+            return domain.split('.')[0].title()
+        except:
+            return "Unknown"
 
 # Load environment variables
 load_dotenv()
@@ -469,9 +652,6 @@ def health():
 @app.route('/api/generate-premium', methods=['POST'])
 def generate_premium():
     """Generate premium competitive intelligence report"""
-    if not SYSTEM_AVAILABLE:
-        return jsonify({'error': 'Competitive intelligence system not available'}), 500
-    
     try:
         data = request.get_json()
         urls = data.get('urls', [])
@@ -482,8 +662,11 @@ def generate_premium():
         if len(urls) > 15:
             return jsonify({'error': 'Maximum 15 URLs allowed'}), 400
         
-        # Initialize the premium system
-        generator = StrategicCompetitiveIntelligence()
+        # Initialize the system (with fallback)
+        if SYSTEM_AVAILABLE:
+            generator = StrategicCompetitiveIntelligence()
+        else:
+            generator = RailwayCompetitiveIntelligence()
         
         # Generate the report
         output_file = generator.generate_strategic_intelligence_report(

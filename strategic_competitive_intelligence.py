@@ -1348,9 +1348,22 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
             chrome_options.add_argument('--window-size=1200,800')
             chrome_options.add_argument('--disable-web-security')
             chrome_options.add_argument('--disable-features=VizDisplayCompositor')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-software-rasterizer')
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--disable-plugins')
+            chrome_options.add_argument('--disable-default-apps')
+            chrome_options.add_argument('--remote-debugging-port=9222')
             # Block common tracking and cookie dialogs
             chrome_options.add_argument('--disable-popup-blocking')
             chrome_options.add_argument('--disable-notifications')
+            # Railway/Docker specific
+            chrome_options.add_argument('--single-process')
+            chrome_options.add_argument('--disable-background-networking')
+            chrome_options.add_argument('--disable-sync')
             
             driver = webdriver.Chrome(options=chrome_options)
             driver.get(url)
