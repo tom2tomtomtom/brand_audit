@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Strategic Competitive Intelligence System
-McKinsey-level comprehensive competitive analysis with deep strategic insights
+Comprehensive competitive analysis with deep multi-page insights
 """
 
 import requests
@@ -25,6 +25,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+
+# Import deep scraping capabilities
+try:
+    from deep_scraper import enhance_brand_analysis_with_deep_scraping
+    DEEP_SCRAPING_AVAILABLE = True
+except ImportError:
+    print("❌ Deep scraping module not available")
+    DEEP_SCRAPING_AVAILABLE = False
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -50,7 +58,7 @@ class StrategicCompetitiveIntelligence:
             print(f"Failed to retrieve the page: {url} -- {e}")
             return None
     
-    def extract_comprehensive_brand_data(self, url):
+    def extract_comprehensive_brand_data(self, url, progress_callback=None):
         """Extract comprehensive brand data for strategic analysis"""
         print(f"🔍 STRATEGIC ANALYSIS: {url}")
         
@@ -116,6 +124,17 @@ class StrategicCompetitiveIntelligence:
         # Search external sources for additional company information
         print("   🌐 Searching external sources for additional company data...")
         brand_profile = self._search_external_sources(brand_profile)
+        
+        # Deep multi-page analysis (new comprehensive feature)
+        if DEEP_SCRAPING_AVAILABLE:
+            print("   🔬 DEEP ANALYSIS: Scanning multiple pages for comprehensive insights...")
+            print("   📄 This includes: About, Products, Pricing, Blog, Team, Case Studies")
+            if progress_callback:
+                progress_callback(f"Deep analysis: {brand_profile['company_name']}")
+            brand_profile = enhance_brand_analysis_with_deep_scraping(brand_profile, progress_callback)
+            print("   ✅ Deep multi-page analysis complete")
+        else:
+            print("   ⚠️ Deep scraping not available - using homepage analysis only")
         
         return brand_profile
     
@@ -1475,7 +1494,7 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
             print(f"     ⚠️ Privacy dialog handling failed: {e}")
             pass  # Continue even if dialog handling fails
     
-    def generate_strategic_intelligence_report(self, urls, report_title="Strategic Competitive Intelligence", output_filename=None):
+    def generate_strategic_intelligence_report(self, urls, report_title="Strategic Competitive Intelligence", output_filename=None, progress_callback=None):
         """Generate comprehensive strategic intelligence report"""
         
         if not output_filename:
@@ -1492,8 +1511,10 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
         try:
             for i, url in enumerate(urls, 1):
                 print(f"\n🔍 [{i}/{len(urls)}] Comprehensive Data Extraction: {url}")
+                if progress_callback:
+                    progress_callback(f"Analyzing brand {i}/{len(urls)}: {urlparse(url).netloc}")
                 try:
-                    profile = self.extract_comprehensive_brand_data(url)
+                    profile = self.extract_comprehensive_brand_data(url, progress_callback)
                     if profile:
                         company_name = profile['company_name']
                         if company_name not in seen_companies:

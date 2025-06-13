@@ -53,6 +53,7 @@ COPY strategic_competitive_intelligence.py .
 COPY railway_app.py .
 COPY railway_startup_check.py .
 COPY railway_health_only.py .
+COPY deep_scraper.py .
 
 # Create required directories
 RUN mkdir -p /tmp
