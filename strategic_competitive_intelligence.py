@@ -7,7 +7,6 @@ Comprehensive competitive analysis with deep multi-page insights
 import requests
 from bs4 import BeautifulSoup
 import openai
-from openai import OpenAI
 import pandas as pd
 import os
 import json
