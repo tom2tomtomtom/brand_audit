@@ -1299,21 +1299,50 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
         return False
     
     def _extract_colors_comprehensive(self, html_content, url):
-        """Extract and process brand colors"""
+        """Extract and process brand colors with improved accuracy"""
         soup = BeautifulSoup(html_content, 'html.parser')
         all_colors = set()
+        color_frequency = defaultdict(int)
         
+        # Extract colors from inline styles
         for element in soup.find_all(style=True):
             style = element.get('style', '')
-            colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)', style)
-            all_colors.update(colors)
+            colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)|rgba\([^)]+\)', style)
+            for color in colors:
+                all_colors.add(color)
+                color_frequency[color] += 1
         
+        # Extract colors from style tags
         for style_tag in soup.find_all('style'):
             css_content = style_tag.get_text()
-            colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)', css_content)
-            all_colors.update(colors)
+            colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)|rgba\([^)]+\)', css_content)
+            for color in colors:
+                all_colors.add(color)
+                color_frequency[color] += 5  # Weight CSS colors higher
         
-        return self._process_colors(list(all_colors))
+        # Try to extract colors from external CSS files
+        try:
+            for link in soup.find_all('link', {'rel': 'stylesheet'}):
+                css_url = urljoin(url, link.get('href', ''))
+                if css_url and css_url.endswith('.css'):
+                    try:
+                        css_response = self.session.get(css_url, timeout=5)
+                        if css_response.status_code == 200:
+                            css_content = css_response.text
+                            colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)|rgba\([^)]+\)', css_content)
+                            for color in colors:
+                                all_colors.add(color)
+                                color_frequency[color] += 3  # Weight external CSS colors
+                    except:
+                        continue
+        except:
+            pass
+        
+        # Sort colors by frequency to prioritize brand colors
+        sorted_colors = sorted(color_frequency.items(), key=lambda x: x[1], reverse=True)
+        prioritized_colors = [color for color, _ in sorted_colors]
+        
+        return self._process_colors(prioritized_colors)
     
     def _process_colors(self, color_list):
         """Process and return dominant colors"""
@@ -1360,79 +1389,107 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
             return ['#666666', '#999999', '#cccccc', '#e9ecef', '#f8f9fa', '#ffffff']
     
     def _capture_screenshot_proper(self, url):
-        """Capture screenshot for visual analysis with privacy dialog handling"""
-        try:
-            chrome_options = Options()
-            chrome_options.add_argument('--headless')
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--window-size=1200,800')
-            chrome_options.add_argument('--disable-web-security')
-            chrome_options.add_argument('--disable-features=VizDisplayCompositor')
-            chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--disable-software-rasterizer')
-            chrome_options.add_argument('--disable-background-timer-throttling')
-            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
-            chrome_options.add_argument('--disable-renderer-backgrounding')
-            chrome_options.add_argument('--disable-extensions')
-            chrome_options.add_argument('--disable-plugins')
-            chrome_options.add_argument('--disable-default-apps')
-            chrome_options.add_argument('--remote-debugging-port=9222')
-            # Block common tracking and cookie dialogs
-            chrome_options.add_argument('--disable-popup-blocking')
-            chrome_options.add_argument('--disable-notifications')
-            # Railway/Docker specific
-            chrome_options.add_argument('--single-process')
-            chrome_options.add_argument('--disable-background-networking')
-            chrome_options.add_argument('--disable-sync')
-            
+        """Capture screenshot for visual analysis with improved reliability"""
+        max_retries = 3
+        for retry in range(max_retries):
             try:
-                # Use webdriver-manager to automatically handle ChromeDriver
-                print("Installing/locating ChromeDriver...")
-                chrome_driver_path = ChromeDriverManager().install()
-                print(f"ChromeDriver path: {chrome_driver_path}")
+                chrome_options = Options()
+                chrome_options.add_argument('--headless')
+                chrome_options.add_argument('--no-sandbox')
+                chrome_options.add_argument('--disable-dev-shm-usage')
+                chrome_options.add_argument('--window-size=1920,1080')  # Larger size for better capture
+                chrome_options.add_argument('--disable-web-security')
+                chrome_options.add_argument('--disable-features=VizDisplayCompositor')
+                chrome_options.add_argument('--disable-gpu')
+                chrome_options.add_argument('--disable-software-rasterizer')
+                chrome_options.add_argument('--disable-background-timer-throttling')
+                chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+                chrome_options.add_argument('--disable-renderer-backgrounding')
+                chrome_options.add_argument('--disable-extensions')
+                chrome_options.add_argument('--disable-plugins')
+                chrome_options.add_argument('--disable-default-apps')
+                chrome_options.add_argument('--remote-debugging-port=9222')
+                # Block common tracking and cookie dialogs
+                chrome_options.add_argument('--disable-popup-blocking')
+                chrome_options.add_argument('--disable-notifications')
+                # Railway/Docker specific
+                chrome_options.add_argument('--single-process')
+                chrome_options.add_argument('--disable-background-networking')
+                chrome_options.add_argument('--disable-sync')
+                # Force color profile
+                chrome_options.add_argument('--force-color-profile=srgb')
                 
-                service = Service(chrome_driver_path)
-                driver = webdriver.Chrome(service=service, options=chrome_options)
-                print("Chrome driver initialized successfully")
+                try:
+                    # Use webdriver-manager to automatically handle ChromeDriver
+                    if retry == 0:
+                        print("Installing/locating ChromeDriver...")
+                    chrome_driver_path = ChromeDriverManager().install()
+                    if retry == 0:
+                        print(f"ChromeDriver path: {chrome_driver_path}")
+                    
+                    service = Service(chrome_driver_path)
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                    if retry == 0:
+                        print("Chrome driver initialized successfully")
+                except Exception as e:
+                    if retry == 0:
+                        print(f"Chrome driver initialization failed: {e}")
+                        import traceback
+                        traceback.print_exc()
+                    # Try with explicit Chrome binary location
+                    chrome_options.binary_location = "/usr/bin/google-chrome-stable"
+                    chrome_driver_path = ChromeDriverManager().install()
+                    service = Service(chrome_driver_path)
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                
+                driver.get(url)
+                
+                # Wait for page to fully load
+                from selenium.webdriver.support.ui import WebDriverWait
+                wait = WebDriverWait(driver, 10)
+                wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+                
+                # Additional wait for dynamic content
+                time.sleep(4)
+                
+                # Try to handle privacy/cookie dialogs
+                self._handle_privacy_dialogs(driver)
+                
+                # Wait for any animations
+                time.sleep(2)
+                
+                # Scroll to trigger lazy loading
+                driver.execute_script("window.scrollTo(0, 500);")
+                time.sleep(1)
+                driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(1)
+                
+                # Take screenshot
+                screenshot = driver.get_screenshot_as_png()
+                
+                # Verify screenshot is not blank
+                if len(screenshot) < 10000:  # Too small, likely blank
+                    raise Exception("Screenshot appears to be blank")
+                
+                screenshot_b64 = base64.b64encode(screenshot).decode('utf-8')
+                
+                driver.quit()
+                print(f"     ✅ Screenshot captured successfully (attempt {retry+1})")
+                return f"data:image/png;base64,{screenshot_b64}"
+                
             except Exception as e:
-                print(f"Chrome driver initialization failed: {e}")
-                import traceback
-                traceback.print_exc()
-                # Try with explicit Chrome binary location
-                chrome_options.binary_location = "/usr/bin/google-chrome-stable"
-                chrome_driver_path = ChromeDriverManager().install()
-                service = Service(chrome_driver_path)
-                driver = webdriver.Chrome(service=service, options=chrome_options)
-            driver.get(url)
-            
-            # Wait for initial page load
-            time.sleep(3)
-            
-            # Try to handle privacy/cookie dialogs
-            self._handle_privacy_dialogs(driver)
-            
-            # Wait a bit more for any animations/loading
-            time.sleep(2)
-            
-            # Try to scroll down slightly to avoid sticky headers
-            driver.execute_script("window.scrollTo(0, 100);")
-            time.sleep(1)
-            
-            screenshot = driver.get_screenshot_as_png()
-            screenshot_b64 = base64.b64encode(screenshot).decode('utf-8')
-            
-            driver.quit()
-            return f"data:image/png;base64,{screenshot_b64}"
-            
-        except Exception as e:
-            print(f"     ❌ Screenshot failed: {e}")
-            try:
-                if 'driver' in locals():
-                    driver.quit()
-            except:
-                pass
-            return None
+                print(f"     ⚠️  Screenshot attempt {retry+1} failed: {e}")
+                try:
+                    if 'driver' in locals():
+                        driver.quit()
+                except:
+                    pass
+                
+                if retry == max_retries - 1:
+                    print(f"     ❌ All screenshot attempts failed for {url}")
+                    return None
+                else:
+                    time.sleep(2)  # Wait before retry
     
     def _handle_privacy_dialogs(self, driver):
         """Try to dismiss privacy dialogs, cookie banners, and consent popups"""
@@ -2744,7 +2801,7 @@ Return only the brand story text, no additional commentary.
             for link in soup.find_all('link', {'rel': 'stylesheet'}):
                 try:
                     css_url = urljoin(url, link.get('href', ''))
-                    if css_url.endswith('.css'):
+                    if css_url and (css_url.endswith('.css') or 'css' in css_url):
                         css_response = self.session.get(css_url, timeout=5)
                         if css_response.status_code == 200:
                             css_content = css_response.text
@@ -2753,6 +2810,15 @@ Return only the brand story text, no additional commentary.
                                 font_families.add(match.strip())
                 except:
                     continue
+            
+            # Try to extract fonts using Selenium for computed styles
+            if not font_families or len(font_families) < 2:
+                try:
+                    print("         📱 Using Selenium for deep font extraction...")
+                    fonts_from_selenium = self._extract_fonts_with_selenium(url)
+                    font_families.update(fonts_from_selenium)
+                except Exception as e:
+                    print(f"         ⚠️ Selenium font extraction failed: {e}")
             
             # Clean and filter font families
             for font_family in font_families:
@@ -2906,6 +2972,76 @@ Return only the brand story text, no additional commentary.
         
         return formatted_text
 
+
+    def _extract_fonts_with_selenium(self, url):
+        """Extract fonts using Selenium to get computed styles"""
+        fonts = set()
+        driver = None
+        try:
+            chrome_options = Options()
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--window-size=1920,1080')
+            chrome_options.add_argument('--force-color-profile=srgb')
+            
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            driver.get(url)
+            
+            # Wait for page load
+            from selenium.webdriver.support.ui import WebDriverWait
+            WebDriverWait(driver, 10).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            time.sleep(2)
+            
+            # Execute JavaScript to get computed fonts
+            font_data = driver.execute_script("""
+                const fonts = new Set();
+                const elements = document.querySelectorAll('*');
+                
+                // Sample elements across the page
+                const sampleElements = [];
+                const step = Math.max(1, Math.floor(elements.length / 100)); // Sample up to 100 elements
+                
+                for(let i = 0; i < elements.length; i += step) {
+                    const el = elements[i];
+                    if(el.offsetWidth > 0 && el.offsetHeight > 0) { // Only visible elements
+                        const computed = window.getComputedStyle(el);
+                        const fontFamily = computed.fontFamily;
+                        if(fontFamily) {
+                            fonts.add(fontFamily);
+                        }
+                    }
+                }
+                
+                // Also check specific important elements
+                const importantSelectors = ['h1', 'h2', 'h3', 'p', 'body', 'nav', 'header', '.logo', '.brand'];
+                importantSelectors.forEach(selector => {
+                    document.querySelectorAll(selector).forEach(el => {
+                        const computed = window.getComputedStyle(el);
+                        const fontFamily = computed.fontFamily;
+                        if(fontFamily) {
+                            fonts.add(fontFamily);
+                        }
+                    });
+                });
+                
+                return Array.from(fonts);
+            """)
+            
+            if font_data:
+                for font_family in font_data:
+                    fonts.add(font_family)
+                
+        except Exception as e:
+            print(f"Selenium font extraction error: {e}")
+        finally:
+            if driver:
+                driver.quit()
+                
+        return fonts
 
 def main():
     """Generate strategic competitive intelligence report"""

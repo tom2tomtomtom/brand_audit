@@ -375,7 +375,7 @@ class DeepWebsiteScraper:
             return {'success': False}
     
     def take_multiple_screenshots(self, urls: List[str], progress_callback=None) -> Dict[str, str]:
-        """Take screenshots of multiple pages"""
+        """Take screenshots of multiple pages with retry logic"""
         if not self.driver:
             self.setup_selenium_driver()
         
@@ -389,17 +389,52 @@ class DeepWebsiteScraper:
                 if progress_callback:
                     progress_callback(f"Taking screenshot {i+1}/5: {urlparse(url).path}")
                 
-                self.driver.get(url)
-                time.sleep(3)
-                
-                # Handle privacy dialogs
-                self._handle_privacy_dialogs()
-                time.sleep(2)
-                
-                # Take screenshot
-                screenshot_data = self.driver.get_screenshot_as_base64()
-                page_name = urlparse(url).path.split('/')[-1] or 'homepage'
-                screenshots[page_name] = screenshot_data
+                # Retry logic for screenshot capture
+                max_retries = 3
+                for retry in range(max_retries):
+                    try:
+                        self.driver.get(url)
+                        
+                        # Wait for page to load with explicit wait
+                        wait = WebDriverWait(self.driver, 10)
+                        wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
+                        
+                        # Additional wait for dynamic content
+                        time.sleep(3)
+                        
+                        # Handle privacy dialogs
+                        self._handle_privacy_dialogs()
+                        time.sleep(2)
+                        
+                        # Scroll to ensure content is loaded
+                        self.driver.execute_script("window.scrollTo(0, 300);")
+                        time.sleep(1)
+                        self.driver.execute_script("window.scrollTo(0, 0);")
+                        time.sleep(1)
+                        
+                        # Take screenshot
+                        screenshot_data = self.driver.get_screenshot_as_base64()
+                        
+                        # Verify screenshot is not blank (basic check)
+                        if len(screenshot_data) > 1000:  # Arbitrary minimum size
+                            page_name = urlparse(url).path.split('/')[-1] or 'homepage'
+                            screenshots[page_name] = screenshot_data
+                            print(f"Screenshot captured successfully for {url}")
+                            break
+                        else:
+                            print(f"Screenshot appears blank, retrying... (attempt {retry+1}/{max_retries})")
+                            
+                    except Exception as e:
+                        print(f"Screenshot attempt {retry+1} failed for {url}: {e}")
+                        if retry == max_retries - 1:
+                            # On final retry, try to capture whatever we can
+                            try:
+                                basic_screenshot = self.driver.get_screenshot_as_base64()
+                                if basic_screenshot:
+                                    page_name = urlparse(url).path.split('/')[-1] or 'homepage'
+                                    screenshots[page_name] = basic_screenshot
+                            except:
+                                pass
                 
             except Exception as e:
                 print(f"Screenshot error for {url}: {e}")
