@@ -75,6 +75,15 @@ def run_analysis_job(job_id, companies_or_urls):
         temp_dir = tempfile.gettempdir()
         output_filename = os.path.join(temp_dir, f"brandintell_{job_id}.html")
         
+        print(f"Job {job_id}: Starting report generation")
+        print(f"Job {job_id}: Output will be saved to: {output_filename}")
+        print(f"Job {job_id}: Processing {len(companies_or_urls)} companies: {companies_or_urls}")
+        
+        # Update progress
+        with job_lock:
+            jobs[job_id]['message'] = f'Processing {len(companies_or_urls)} companies...'
+            jobs[job_id]['companies'] = companies_or_urls
+        
         # Pass companies_or_urls directly - the method will handle conversion
         output_file = generator.generate_strategic_intelligence_report(
             companies_or_urls=companies_or_urls,
@@ -83,10 +92,19 @@ def run_analysis_job(job_id, companies_or_urls):
             progress_callback=progress_callback
         )
         
+        print(f"Job {job_id}: Report generation returned: {output_file}")
+        
         with job_lock:
-            jobs[job_id]['status'] = 'completed'
-            jobs[job_id]['output_file'] = output_file
-            jobs[job_id]['completed_at'] = datetime.now().isoformat()
+            if output_file and os.path.exists(output_file):
+                jobs[job_id]['status'] = 'completed'
+                jobs[job_id]['output_file'] = output_file
+                jobs[job_id]['completed_at'] = datetime.now().isoformat()
+                print(f"Job {job_id} completed successfully. Report saved to: {output_file}")
+            else:
+                jobs[job_id]['status'] = 'failed'
+                jobs[job_id]['error'] = 'Report generation returned no file'
+                jobs[job_id]['failed_at'] = datetime.now().isoformat()
+                print(f"Job {job_id} failed: No output file generated")
             
     except Exception as e:
         import traceback
@@ -551,6 +569,8 @@ def health():
 @app.route('/api/start-analysis', methods=['POST'])
 def start_analysis():
     """Start analysis job in background"""
+    print("Received analysis request")
+    
     if not SYSTEM_AVAILABLE or not StrategicCompetitiveIntelligence:
         return jsonify({
             'error': 'Strategic competitive intelligence system not available',
@@ -559,40 +579,48 @@ def start_analysis():
     
     try:
         data = request.get_json()
-        urls = data.get('urls', [])
+        companies_or_urls = data.get('urls', [])  # Still called 'urls' in the API for compatibility
         
-        if len(urls) < 2:
-            return jsonify({'error': 'At least 2 URLs required'}), 400
+        print(f"Received companies/URLs: {companies_or_urls}")
         
-        if len(urls) > 15:
-            return jsonify({'error': 'Maximum 15 URLs allowed'}), 400
+        if len(companies_or_urls) < 2:
+            return jsonify({'error': 'At least 2 companies required'}), 400
+        
+        if len(companies_or_urls) > 15:
+            return jsonify({'error': 'Maximum 15 companies allowed'}), 400
         
         # Create job ID
         job_id = str(uuid.uuid4())
+        print(f"Created job ID: {job_id}")
         
         # Initialize job
         with job_lock:
             jobs[job_id] = {
                 'id': job_id,
                 'status': 'pending',
-                'urls': urls,
+                'companies_or_urls': companies_or_urls,
                 'created_at': datetime.now().isoformat(),
                 'progress': 0
             }
         
         # Start background thread
-        thread = threading.Thread(target=run_analysis_job, args=(job_id, urls))
+        thread = threading.Thread(target=run_analysis_job, args=(job_id, companies_or_urls))
         thread.daemon = True
         thread.start()
+        
+        print(f"Started background thread for job {job_id}")
         
         return jsonify({
             'job_id': job_id,
             'status': 'started',
-            'message': f'Analysis started for {len(urls)} URLs'
+            'message': f'Analysis started for {len(companies_or_urls)} companies'
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print(f"Error starting analysis: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 @app.route('/api/job-status/<job_id>')
 def job_status(job_id):
@@ -612,17 +640,29 @@ def download_report(job_id):
         job = jobs.get(job_id)
     
     if not job:
-        return jsonify({'error': 'Job not found'}), 404
+        return jsonify({'error': 'Job not found', 'job_id': job_id}), 404
     
     if job['status'] != 'completed':
-        return jsonify({'error': 'Job not completed'}), 400
+        return jsonify({
+            'error': 'Job not completed', 
+            'status': job['status'],
+            'job_id': job_id
+        }), 400
     
     output_file = job.get('output_file')
+    print(f"Download request for job {job_id}, file: {output_file}")
+    
     if output_file and os.path.exists(output_file):
+        print(f"Sending file: {output_file}")
         return send_file(output_file, as_attachment=True, 
                         download_name='brandintell_comprehensive_report.html')
     else:
-        return jsonify({'error': 'Report file not found'}), 404
+        return jsonify({
+            'error': 'Report file not found',
+            'file_path': output_file,
+            'exists': os.path.exists(output_file) if output_file else False,
+            'job_id': job_id
+        }), 404
 
 @app.route('/api/status')
 def api_status():
@@ -637,8 +677,26 @@ def api_status():
             'GET /health': 'Health check',
             'POST /api/start-analysis': 'Start analysis job',
             'GET /api/job-status/<id>': 'Get job status',
-            'GET /api/download-report/<id>': 'Download report'
+            'GET /api/download-report/<id>': 'Download report',
+            'GET /api/debug/jobs': 'Debug - list all jobs'
         }
+    })
+
+@app.route('/api/debug/jobs')
+def debug_jobs():
+    """Debug endpoint to see all jobs"""
+    with job_lock:
+        all_jobs = dict(jobs)
+    
+    # Sanitize file paths for security
+    for job_id, job in all_jobs.items():
+        if 'output_file' in job:
+            job['output_file_exists'] = os.path.exists(job['output_file']) if job['output_file'] else False
+            job['output_file_name'] = os.path.basename(job['output_file']) if job['output_file'] else None
+    
+    return jsonify({
+        'total_jobs': len(all_jobs),
+        'jobs': all_jobs
     })
 
 if __name__ == '__main__':
