@@ -151,11 +151,14 @@ Country: {country if country else 'Any'}
         """Extract comprehensive brand data for strategic analysis"""
         print(f"🔍 STRATEGIC ANALYSIS: {url}")
         
-        html_content = self.fetch_page(url)
-        if not html_content:
-            return None
-        
-        soup = BeautifulSoup(html_content, 'html.parser')
+        try:
+            html_content = self.fetch_page(url)
+            if not html_content:
+                print(f"   ❌ Failed to fetch content from {url}")
+                return None
+            
+            soup = BeautifulSoup(html_content, 'html.parser')
+            print(f"   ✅ Successfully fetched {len(html_content)} bytes from {url}")
         
         # Comprehensive content extraction
         print("   📊 Extracting comprehensive website content...")
@@ -226,6 +229,27 @@ Country: {country if country else 'Any'}
             print("   ⚠️ Deep scraping not available - using homepage analysis only")
         
         return brand_profile
+        
+        except Exception as e:
+            print(f"   ❌ Error extracting brand data from {url}: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Return minimal profile on error
+            return {
+                "url": url,
+                "company_name": urlparse(url).netloc.replace('www.', '').replace('.com', '').replace('.', ' ').title(),
+                "comprehensive_content": {"hero_sections": [], "value_propositions": [], "about_content": []},
+                "strategic_messaging": {"taglines": [], "key_messages": []},
+                "product_portfolio": {"main_products": [], "industries": []},
+                "visual_identity": {"colors": [], "fonts": {}},
+                "business_model": {"pricing_model": "Unknown", "enterprise_focus": False},
+                "partnerships": {"tech_partners": [], "other_partners": []},
+                "screenshot": None,
+                "extraction_timestamp": datetime.now().isoformat(),
+                "error": True,
+                "error_message": str(e)
+            }
     
     def _enhance_missing_data_with_ai(self, brand_profile, html_content):
         """Use AI to fill in missing data gaps"""
@@ -1660,10 +1684,14 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
         """
         
         # Process input to get URLs
-        if all(isinstance(item, str) and (item.startswith('http') or '.' not in item) for item in companies_or_urls):
+        # Check if any items need URL lookup (not starting with http)
+        needs_lookup = any(not item.startswith('http') for item in companies_or_urls if isinstance(item, str))
+        
+        if needs_lookup:
+            print("🔍 Processing company names to find URLs...")
             urls = self.process_company_input(companies_or_urls)
         else:
-            # Assume they're already URLs
+            # All items are already URLs
             urls = companies_or_urls
         
         if not urls:
@@ -1706,24 +1734,33 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
         
         if not self.brand_profiles:
             print("❌ No brands were successfully analyzed")
+            print(f"   Attempted to analyze: {urls}")
             return None
         
-        # Generate strategic analysis for each brand
-        print(f"\n🧠 Generating strategic analysis for each brand...")
-        for brand in self.brand_profiles:
-            strategic_analysis = self.generate_strategic_brand_analysis(brand, self.brand_profiles)
-            brand['strategic_analysis'] = strategic_analysis
-        
-        # Generate market intelligence
-        print(f"\n🌐 Generating market landscape intelligence...")
-        self.market_intelligence = self.generate_market_intelligence(self.brand_profiles)
-        
-        # Generate strategic report
-        print(f"\n📄 Creating strategic intelligence report...")
-        html_content = self._generate_strategic_report(report_title)
-        
-        # Save report
         try:
+            # Generate strategic analysis for each brand
+            print(f"\n🧠 Generating strategic analysis for each brand...")
+            for brand in self.brand_profiles:
+                try:
+                    strategic_analysis = self.generate_strategic_brand_analysis(brand, self.brand_profiles)
+                    brand['strategic_analysis'] = strategic_analysis
+                except Exception as e:
+                    print(f"⚠️ Strategic analysis failed for {brand.get('company_name', 'Unknown')}: {e}")
+                    brand['strategic_analysis'] = "Analysis unavailable due to error."
+            
+            # Generate market intelligence
+            print(f"\n🌐 Generating market landscape intelligence...")
+            try:
+                self.market_intelligence = self.generate_market_intelligence(self.brand_profiles)
+            except Exception as e:
+                print(f"⚠️ Market intelligence generation failed: {e}")
+                self.market_intelligence = "Market intelligence unavailable due to error."
+            
+            # Generate strategic report
+            print(f"\n📄 Creating strategic intelligence report...")
+            html_content = self._generate_strategic_report(report_title)
+            
+            # Save report
             with open(output_filename, 'w', encoding='utf-8') as f:
                 f.write(html_content)
             
@@ -1736,7 +1773,9 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
             return output_filename
             
         except Exception as e:
-            print(f"❌ Error saving report: {e}")
+            print(f"❌ Error during report generation: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _generate_strategic_report(self, report_title):
