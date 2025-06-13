@@ -1388,13 +1388,21 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
             
             try:
                 # Use webdriver-manager to automatically handle ChromeDriver
-                service = Service(ChromeDriverManager().install())
+                print("Installing/locating ChromeDriver...")
+                chrome_driver_path = ChromeDriverManager().install()
+                print(f"ChromeDriver path: {chrome_driver_path}")
+                
+                service = Service(chrome_driver_path)
                 driver = webdriver.Chrome(service=service, options=chrome_options)
+                print("Chrome driver initialized successfully")
             except Exception as e:
                 print(f"Chrome driver initialization failed: {e}")
+                import traceback
+                traceback.print_exc()
                 # Try with explicit Chrome binary location
                 chrome_options.binary_location = "/usr/bin/google-chrome-stable"
-                service = Service(ChromeDriverManager().install())
+                chrome_driver_path = ChromeDriverManager().install()
+                service = Service(chrome_driver_path)
                 driver = webdriver.Chrome(service=service, options=chrome_options)
             driver.get(url)
             

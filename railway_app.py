@@ -644,10 +644,19 @@ def generate_premium():
             print(f"Progress: {message}")
         
         # Generate the FULL report with real data only
+        # Use /tmp directory for Railway compatibility
+        import tempfile
+        
+        temp_dir = tempfile.gettempdir()
+        output_filename = os.path.join(temp_dir, f"brandintell_report_{int(time.time())}.html")
+        
+        print(f"Starting analysis with output to: {output_filename}")
+        print(f"Analyzing {len(urls)} URLs: {urls}")
+        
         output_file = generator.generate_strategic_intelligence_report(
             urls=urls,
             report_title="Brandintell Comprehensive Intelligence Analysis",
-            output_filename=f"brandintell_report_{int(time.time())}.html",
+            output_filename=output_filename,
             progress_callback=progress_callback
         )
         
@@ -657,7 +666,14 @@ def generate_premium():
             return jsonify({'error': 'Failed to generate report'}), 500
             
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_details = {
+            'error': str(e),
+            'type': type(e).__name__,
+            'traceback': traceback.format_exc()
+        }
+        print(f"Error in generate_premium: {error_details}")
+        return jsonify(error_details), 500
 
 @app.route('/api/status')
 def status():
