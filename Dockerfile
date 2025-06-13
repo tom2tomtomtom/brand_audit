@@ -62,5 +62,9 @@ HEALTHCHECK --interval=30s --timeout=20s --start-period=10s --retries=5 \
 # Expose port
 EXPOSE $PORT
 
-# Run the app
-CMD ["python", "railway_app.py"]
+# Create startup script
+COPY start.sh .
+RUN chmod +x start.sh
+
+# Run the app with gunicorn for production
+CMD ["./start.sh"]
