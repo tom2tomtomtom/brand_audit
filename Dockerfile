@@ -55,9 +55,9 @@ ENV DISPLAY=:99
 ENV CHROME_BIN=/usr/bin/google-chrome
 ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
 
-# Health check with longer timeout
-HEALTHCHECK --interval=30s --timeout=20s --start-period=10s --retries=5 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
+# Health check with longer timeout for Railway
+HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-5000}/health || exit 1
 
 # Expose port
 EXPOSE $PORT
