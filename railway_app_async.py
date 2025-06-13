@@ -5,6 +5,7 @@ Handles long-running analysis tasks without timeouts
 """
 
 import os
+import sys
 import json
 import time
 import uuid
@@ -14,6 +15,9 @@ from dotenv import load_dotenv
 from datetime import datetime
 import threading
 from collections import defaultdict
+
+# Ensure the current directory is in the Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import our premium competitive intelligence system
 IMPORT_ERROR = None
@@ -61,7 +65,15 @@ def run_analysis_job(job_id, companies_or_urls):
         jobs[job_id]['message'] = 'Initializing analysis...'
     
     try:
-        generator = StrategicCompetitiveIntelligence()
+        # Import inside the thread to avoid import issues
+        print(f"Job {job_id}: Importing strategic intelligence system...")
+        try:
+            from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+            generator = StrategicCompetitiveIntelligence()
+            print(f"Job {job_id}: System imported successfully")
+        except Exception as e:
+            print(f"Job {job_id}: Failed to import system: {e}")
+            raise Exception(f"Failed to import analysis system: {e}")
         
         def progress_callback(message):
             with job_lock:
@@ -571,11 +583,8 @@ def start_analysis():
     """Start analysis job in background"""
     print("Received analysis request")
     
-    if not SYSTEM_AVAILABLE or not StrategicCompetitiveIntelligence:
-        return jsonify({
-            'error': 'Strategic competitive intelligence system not available',
-            'import_error': IMPORT_ERROR
-        }), 503
+    # Don't check system availability here - import dynamically in thread
+    # This avoids import issues with gunicorn workers
     
     try:
         data = request.get_json()
@@ -698,6 +707,25 @@ def debug_jobs():
         'total_jobs': len(all_jobs),
         'jobs': all_jobs
     })
+
+@app.route('/api/test-import')
+def test_import():
+    """Test if the system can be imported"""
+    try:
+        from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+        return jsonify({
+            'status': 'success',
+            'message': 'System can be imported successfully',
+            'openai_key_present': bool(os.environ.get('OPENAI_API_KEY'))
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'traceback': traceback.format_exc(),
+            'openai_key_present': bool(os.environ.get('OPENAI_API_KEY'))
+        })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
