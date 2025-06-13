@@ -41,17 +41,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Install ChromeDriver using webdriver-manager (handles version compatibility automatically)
 RUN echo "Installing ChromeDriver via webdriver-manager..." && \
-    python -c "
-from webdriver_manager.chrome import ChromeDriverManager
-import shutil
-import os
-print('Downloading compatible ChromeDriver...')
-driver_path = ChromeDriverManager().install()
-print(f'Downloaded to: {driver_path}')
-shutil.copy(driver_path, '/usr/local/bin/chromedriver')
-os.chmod('/usr/local/bin/chromedriver', 0o755)
-print('ChromeDriver installed successfully')
-" && \
+    python -c "from webdriver_manager.chrome import ChromeDriverManager; import shutil; import os; print('Downloading compatible ChromeDriver...'); driver_path = ChromeDriverManager().install(); print(f'Downloaded to: {driver_path}'); shutil.copy(driver_path, '/usr/local/bin/chromedriver'); os.chmod('/usr/local/bin/chromedriver', 0o755); print('ChromeDriver installed successfully')" && \
     echo "Verifying ChromeDriver installation..." && \
     chromedriver --version && \
     echo "ChromeDriver setup complete!"
