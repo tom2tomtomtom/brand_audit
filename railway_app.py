@@ -16,14 +16,26 @@ import time
 try:
     from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
     SYSTEM_AVAILABLE = True
+    print("✅ Strategic competitive intelligence system loaded successfully")
 except ImportError as e:
-    print(f"Strategic system not available: {e}")
+    print(f"❌ Strategic system not available: {e}")
+    SYSTEM_AVAILABLE = False
+except Exception as e:
+    print(f"❌ Error loading strategic system: {e}")
     SYSTEM_AVAILABLE = False
 
 # NO DEMO SYSTEM - REAL DATA ONLY
 
 # Load environment variables
 load_dotenv()
+
+# Verify critical environment variables
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+if not OPENAI_API_KEY:
+    print("⚠️  WARNING: OPENAI_API_KEY not found in environment variables")
+    print("   The system will not be able to perform AI analysis")
+else:
+    print(f"✅ OpenAI API key loaded ({len(OPENAI_API_KEY)} chars)")
 
 app = Flask(__name__)
 CORS(app)

@@ -1365,7 +1365,13 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
             chrome_options.add_argument('--disable-background-networking')
             chrome_options.add_argument('--disable-sync')
             
-            driver = webdriver.Chrome(options=chrome_options)
+            try:
+                driver = webdriver.Chrome(options=chrome_options)
+            except Exception as e:
+                print(f"❌ Chrome driver initialization failed: {e}")
+                # Try alternative Chrome binary locations
+                chrome_options.binary_location = "/usr/bin/google-chrome-stable"
+                driver = webdriver.Chrome(options=chrome_options)
             driver.get(url)
             
             # Wait for initial page load
