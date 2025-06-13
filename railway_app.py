@@ -15,26 +15,22 @@ import time
 # Import our premium competitive intelligence system
 IMPORT_ERROR = None
 SYSTEM_AVAILABLE = False
+StrategicCompetitiveIntelligence = None
 
-# Delayed import to prevent startup failures
-def load_strategic_system():
-    global SYSTEM_AVAILABLE, IMPORT_ERROR
-    try:
-        from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
-        SYSTEM_AVAILABLE = True
-        print("Strategic competitive intelligence system loaded successfully")
-        return StrategicCompetitiveIntelligence
-    except ImportError as e:
-        print(f"Strategic system not available - ImportError: {e}")
-        IMPORT_ERROR = f"ImportError: {str(e)}"
-        SYSTEM_AVAILABLE = False
-        return None
-    except Exception as e:
-        print(f"Error loading strategic system - {type(e).__name__}: {e}")
-        import traceback
-        IMPORT_ERROR = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
-        SYSTEM_AVAILABLE = False
-        return None
+# Try to load the system at startup
+try:
+    from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+    SYSTEM_AVAILABLE = True
+    print("Strategic competitive intelligence system loaded successfully")
+except ImportError as e:
+    print(f"Strategic system not available - ImportError: {e}")
+    IMPORT_ERROR = f"ImportError: {str(e)}"
+    SYSTEM_AVAILABLE = False
+except Exception as e:
+    print(f"Error loading strategic system - {type(e).__name__}: {e}")
+    import traceback
+    IMPORT_ERROR = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+    SYSTEM_AVAILABLE = False
 
 # NO DEMO SYSTEM - REAL DATA ONLY
 
@@ -616,19 +612,13 @@ def debug():
 @app.route('/api/generate-premium', methods=['POST'])
 def generate_premium():
     """Generate premium competitive intelligence report"""
-    global SYSTEM_AVAILABLE
-    
-    # Try to load the system if not already loaded
-    if not SYSTEM_AVAILABLE:
-        StrategicCompetitiveIntelligence = load_strategic_system()
-        if not StrategicCompetitiveIntelligence:
-            return jsonify({
-                'error': 'Full competitive intelligence system required. No demo or fake data allowed.',
-                'details': 'Strategic competitive intelligence system not available',
-                'import_error': IMPORT_ERROR
-            }), 503
-    else:
-        from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+    # Check if system is available
+    if not SYSTEM_AVAILABLE or not StrategicCompetitiveIntelligence:
+        return jsonify({
+            'error': 'Full competitive intelligence system required. No demo or fake data allowed.',
+            'details': 'Strategic competitive intelligence system not available',
+            'import_error': IMPORT_ERROR
+        }), 503
     
     try:
         data = request.get_json()
