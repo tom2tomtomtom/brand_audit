@@ -36,8 +36,9 @@ except ImportError:
     print("❌ Deep scraping module not available")
     DEEP_SCRAPING_AVAILABLE = False
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI
+import openai
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 class StrategicCompetitiveIntelligence:
     def __init__(self):
@@ -197,8 +198,8 @@ REMEMBER: Extract ONLY real, actual content from the website. No assumptions, no
 """
             
             try:
-                response = client.chat.completions.create(
-                    model="gpt-4o",
+                response = openai.ChatCompletion.create(
+                    model="gpt-4",
                     messages=[
                         {"role": "system", "content": "You are a professional web content analyst who extracts specific information from website content. Always return valid JSON."},
                         {"role": "user", "content": missing_data_prompt}
@@ -207,7 +208,7 @@ REMEMBER: Extract ONLY real, actual content from the website. No assumptions, no
                     max_tokens=1500
                 )
                 
-                ai_content = response.choices[0].message.content.strip()
+                ai_content = response['choices'][0]['message']['content'].strip()
                 ai_content = re.sub(r"```(json)?", "", ai_content).strip()
                 
                 if '{' in ai_content:
@@ -369,8 +370,8 @@ Focus on providing accurate, verifiable information about {company_name}.
 """
         
         try:
-            response = client.chat.completions.create(
-                model="gpt-4o",
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a business research analyst who provides only factual, verifiable information from your knowledge base. Never make up or infer information."},
                     {"role": "user", "content": research_prompt}
@@ -379,7 +380,7 @@ Focus on providing accurate, verifiable information about {company_name}.
                 max_tokens=2000
             )
             
-            ai_content = response.choices[0].message.content.strip()
+            ai_content = response["choices"][0]["message"]["content"].strip()
             ai_content = re.sub(r"```(json)?", "", ai_content).strip()
             
             if '{' in ai_content:
@@ -758,8 +759,8 @@ Focus on colors that represent the brand identity, not just any color on the pag
 """
         
         try:
-            response = client.chat.completions.create(
-                model="gpt-4o",
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a professional brand color analyst who extracts brand color palettes from website CSS and visual elements. Always return valid JSON with hex colors."},
                     {"role": "user", "content": color_analysis_prompt}
@@ -768,7 +769,7 @@ Focus on colors that represent the brand identity, not just any color on the pag
                 max_tokens=1000
             )
             
-            ai_content = response.choices[0].message.content.strip()
+            ai_content = response["choices"][0]["message"]["content"].strip()
             ai_content = re.sub(r"```(json)?", "", ai_content).strip()
             
             if '{' in ai_content:
@@ -909,8 +910,8 @@ Provide ONLY factual information you are confident about. If you don't have spec
 """
         
         try:
-            response = client.chat.completions.create(
-                model="gpt-4o",
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a brand research specialist with knowledge of corporate brand guidelines and visual identities."},
                     {"role": "user", "content": guidelines_prompt}
@@ -919,7 +920,7 @@ Provide ONLY factual information you are confident about. If you don't have spec
                 max_tokens=800
             )
             
-            ai_content = response.choices[0].message.content.strip()
+            ai_content = response["choices"][0]["message"]["content"].strip()
             ai_content = re.sub(r"```(json)?", "", ai_content).strip()
             
             if '{' in ai_content:
@@ -1220,8 +1221,8 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
         brand_prompt = self.get_comprehensive_competitive_analysis(brand_data, all_competitors)
         
         try:
-            response = client.chat.completions.create(
-                model="gpt-4o",
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a senior strategy consultant with 15+ years experience in competitive intelligence and market analysis. Provide detailed, evidence-based strategic insights."},
                     {"role": "user", "content": brand_prompt}
@@ -1230,7 +1231,7 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
                 max_tokens=4000   # Increased for comprehensive analysis
             )
             
-            return response.choices[0].message.content
+            return response["choices"][0]["message"]["content"]
             
         except Exception as e:
             print(f"     ❌ Strategic analysis failed for {brand_data['company_name']}: {e}")
@@ -1243,8 +1244,8 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
         market_prompt = self.get_market_landscape_analysis(all_competitors)
         
         try:
-            response = client.chat.completions.create(
-                model="gpt-4o",
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a senior market research analyst specializing in competitive landscape analysis with expertise in strategic intelligence."},
                     {"role": "user", "content": market_prompt}
@@ -1253,7 +1254,7 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
                 max_tokens=4000
             )
             
-            return response.choices[0].message.content
+            return response["choices"][0]["message"]["content"]
             
         except Exception as e:
             print(f"     ❌ Market intelligence analysis failed: {e}")
@@ -2589,8 +2590,8 @@ Return only a JSON array of 3-4 personality traits:
 Focus on traits that are clearly supported by their messaging and positioning.
 """
             
-            response = client.chat.completions.create(
-                model="gpt-4o",
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a brand personality analyst. Return only a JSON array of personality traits."},
                     {"role": "user", "content": personality_prompt}
@@ -2599,7 +2600,7 @@ Focus on traits that are clearly supported by their messaging and positioning.
                 max_tokens=200
             )
             
-            content = response.choices[0].message.content.strip()
+            content = response["choices"][0]["message"]["content"].strip()
             # Extract JSON array
             if '[' in content and ']' in content:
                 start = content.find('[')
@@ -2648,8 +2649,8 @@ Write in the style of a premium brand consultancy. Be specific to their actual b
 Return only the brand story text, no additional commentary.
 """
             
-            response = client.chat.completions.create(
-                model="gpt-4o",
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a premium brand strategist who crafts sophisticated brand narratives for professional organizations."},
                     {"role": "user", "content": story_prompt}
@@ -2658,7 +2659,7 @@ Return only the brand story text, no additional commentary.
                 max_tokens=200
             )
             
-            story = response.choices[0].message.content.strip()
+            story = response["choices"][0]["message"]["content"].strip()
             if len(story) > 50:
                 return story
             
