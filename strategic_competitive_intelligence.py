@@ -25,6 +25,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Import deep scraping capabilities
 try:
@@ -1385,12 +1387,15 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
             chrome_options.add_argument('--disable-sync')
             
             try:
-                driver = webdriver.Chrome(options=chrome_options)
+                # Use webdriver-manager to automatically handle ChromeDriver
+                service = Service(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=chrome_options)
             except Exception as e:
-                print(f"❌ Chrome driver initialization failed: {e}")
-                # Try alternative Chrome binary locations
+                print(f"Chrome driver initialization failed: {e}")
+                # Try with explicit Chrome binary location
                 chrome_options.binary_location = "/usr/bin/google-chrome-stable"
-                driver = webdriver.Chrome(options=chrome_options)
+                service = Service(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=chrome_options)
             driver.get(url)
             
             # Wait for initial page load

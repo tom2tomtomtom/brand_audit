@@ -15,6 +15,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import os
 
 class DeepWebsiteScraper:
@@ -46,10 +48,12 @@ class DeepWebsiteScraper:
             chrome_options.add_argument(f'--display={os.environ.get("DISPLAY")}')
         
         try:
-            self.driver = webdriver.Chrome(options=chrome_options)
+            # Use webdriver-manager to automatically handle ChromeDriver
+            service = Service(ChromeDriverManager().install())
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         except Exception as e:
-            print(f"❌ Selenium setup failed: {e}")
+            print(f"Selenium setup failed: {e}")
             self.driver = None
     
     def discover_key_pages(self, base_url: str, progress_callback=None) -> Dict[str, List[str]]:

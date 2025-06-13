@@ -11,16 +11,15 @@ export DISPLAY=:99
 # Wait for virtual display to start
 sleep 3
 
-# Run startup verification
-echo "Running startup verification..."
-python railway_startup_check.py
+# Pre-install ChromeDriver using webdriver-manager
+echo "Pre-installing ChromeDriver..."
+python -c "from webdriver_manager.chrome import ChromeDriverManager; print('Installing ChromeDriver...'); ChromeDriverManager().install(); print('ChromeDriver ready')" || echo "ChromeDriver pre-install failed, will retry at runtime"
 
 # Log startup info
 echo ""
-echo "=== Starting Railway App ==="
+echo "=== Starting Brandintell App ==="
 echo "Port: $PORT"
-echo "Chrome binary: $(which google-chrome || echo 'NOT FOUND')"
-echo "ChromeDriver: $(which chromedriver || echo 'NOT FOUND')"
+echo "Chrome binary: $(which google-chrome || echo 'Will use from /usr/bin/google-chrome-stable')"
 echo "Display: $DISPLAY"
 echo "=========================="
 echo ""
