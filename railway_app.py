@@ -13,15 +13,19 @@ from datetime import datetime
 import time
 
 # Import our premium competitive intelligence system
+IMPORT_ERROR = None
 try:
     from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
     SYSTEM_AVAILABLE = True
     print("Strategic competitive intelligence system loaded successfully")
 except ImportError as e:
-    print(f"Strategic system not available: {e}")
+    print(f"Strategic system not available - ImportError: {e}")
+    IMPORT_ERROR = f"ImportError: {str(e)}"
     SYSTEM_AVAILABLE = False
 except Exception as e:
-    print(f"Error loading strategic system: {e}")
+    print(f"Error loading strategic system - {type(e).__name__}: {e}")
+    import traceback
+    IMPORT_ERROR = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
     SYSTEM_AVAILABLE = False
 
 # NO DEMO SYSTEM - REAL DATA ONLY
@@ -564,7 +568,7 @@ def debug():
         'system_available': SYSTEM_AVAILABLE,
         'python_version': sys.version,
         'openai_key_present': bool(os.environ.get('OPENAI_API_KEY')),
-        'environment': dict(os.environ),
+        'initial_import_error': IMPORT_ERROR,
         'import_error': None,
         'modules_loaded': list(sys.modules.keys())
     }
