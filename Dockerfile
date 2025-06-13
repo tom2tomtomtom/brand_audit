@@ -2,6 +2,8 @@ FROM python:3.11
 
 WORKDIR /app
 
+# Fixed ChromeDriver installation - Dec 13, 2024
+
 # Install system dependencies including Chrome
 RUN apt-get update && apt-get install -y \
     wget \
@@ -37,16 +39,22 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install ChromeDriver using webdriver-manager (more reliable)
-RUN python -c "
+# Install ChromeDriver using webdriver-manager (handles version compatibility automatically)
+RUN echo "Installing ChromeDriver via webdriver-manager..." && \
+    python -c "
 from webdriver_manager.chrome import ChromeDriverManager
 import shutil
 import os
+print('Downloading compatible ChromeDriver...')
 driver_path = ChromeDriverManager().install()
+print(f'Downloaded to: {driver_path}')
 shutil.copy(driver_path, '/usr/local/bin/chromedriver')
 os.chmod('/usr/local/bin/chromedriver', 0o755)
-print(f'ChromeDriver installed to /usr/local/bin/chromedriver from {driver_path}')
-" && chromedriver --version
+print('ChromeDriver installed successfully')
+" && \
+    echo "Verifying ChromeDriver installation..." && \
+    chromedriver --version && \
+    echo "ChromeDriver setup complete!"
 
 # Copy application files
 COPY strategic_competitive_intelligence.py .
