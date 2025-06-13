@@ -159,76 +159,76 @@ Country: {country if country else 'Any'}
             
             soup = BeautifulSoup(html_content, 'html.parser')
             print(f"   ✅ Successfully fetched {len(html_content)} bytes from {url}")
-        
-        # Comprehensive content extraction
-        print("   📊 Extracting comprehensive website content...")
-        comprehensive_content = self._extract_comprehensive_website_content(soup, url)
-        
-        print("   🎯 Extracting strategic messaging and positioning...")
-        strategic_messaging = self._extract_strategic_messaging(soup)
-        
-        print("   💼 Analyzing product/service portfolio...")
-        product_portfolio = self._extract_product_portfolio(soup)
-        
-        print("   🎨 Extracting visual identity and brand elements...")
-        visual_identity = self._extract_comprehensive_visual_identity(html_content, url)
-        
-        print("   🎨 Analyzing brand colors from visual elements...")
-        visual_identity = self._enhance_color_analysis(visual_identity, html_content, url)
-        
-        # Get company name first
-        company_name = self._extract_company_name(soup, url)
-        
-        print("   📋 Searching for brand guidelines and style guides...")
-        brand_guidelines = self._search_brand_guidelines(url, company_name)
-        if brand_guidelines:
-            visual_identity['brand_guidelines'] = brand_guidelines
-        
-        print("   📈 Extracting pricing and business model indicators...")
-        business_model = self._extract_business_model_indicators(soup)
-        
-        print("   🤝 Analyzing partnerships and integrations...")
-        partnerships = self._extract_partnership_indicators(soup)
-        
-        # Screenshot for visual analysis
-        screenshot = self._capture_screenshot_proper(url)
-        
-        # Compile comprehensive profile
-        brand_profile = {
-            "url": url,
-            "company_name": self._extract_company_name(soup, url),
-            "comprehensive_content": comprehensive_content,
-            "strategic_messaging": strategic_messaging,
-            "product_portfolio": product_portfolio,
-            "visual_identity": visual_identity,
-            "business_model": business_model,
-            "partnerships": partnerships,
-            "screenshot": screenshot,
-            "extraction_timestamp": datetime.now().isoformat()
-        }
-        
-        print(f"   ✅ COMPREHENSIVE EXTRACTION COMPLETE: {brand_profile['company_name']}")
-        
-        # Check for missing data and use AI to fill gaps
-        print("   🤖 Checking for data gaps and enhancing with AI...")
-        brand_profile = self._enhance_missing_data_with_ai(brand_profile, html_content)
-        
-        # Search external sources for additional company information
-        print("   🌐 Searching external sources for additional company data...")
-        brand_profile = self._search_external_sources(brand_profile)
-        
-        # Deep multi-page analysis (new comprehensive feature)
-        if DEEP_SCRAPING_AVAILABLE:
-            print("   🔬 DEEP ANALYSIS: Scanning multiple pages for comprehensive insights...")
-            print("   📄 This includes: About, Products, Pricing, Blog, Team, Case Studies")
-            if progress_callback:
-                progress_callback(f"Deep analysis: {brand_profile['company_name']}")
-            brand_profile = enhance_brand_analysis_with_deep_scraping(brand_profile, progress_callback)
-            print("   ✅ Deep multi-page analysis complete")
-        else:
-            print("   ⚠️ Deep scraping not available - using homepage analysis only")
-        
-        return brand_profile
+            
+            # Comprehensive content extraction
+            print("   📊 Extracting comprehensive website content...")
+            comprehensive_content = self._extract_comprehensive_website_content(soup, url)
+            
+            print("   🎯 Extracting strategic messaging and positioning...")
+            strategic_messaging = self._extract_strategic_messaging(soup)
+            
+            print("   💼 Analyzing product/service portfolio...")
+            product_portfolio = self._extract_product_portfolio(soup)
+            
+            print("   🎨 Extracting visual identity and brand elements...")
+            visual_identity = self._extract_comprehensive_visual_identity(html_content, url)
+            
+            print("   🎨 Analyzing brand colors from visual elements...")
+            visual_identity = self._enhance_color_analysis(visual_identity, html_content, url)
+            
+            # Get company name first
+            company_name = self._extract_company_name(soup, url)
+            
+            print("   📋 Searching for brand guidelines and style guides...")
+            brand_guidelines = self._search_brand_guidelines(url, company_name)
+            if brand_guidelines:
+                visual_identity['brand_guidelines'] = brand_guidelines
+            
+            print("   📈 Extracting pricing and business model indicators...")
+            business_model = self._extract_business_model_indicators(soup)
+            
+            print("   🤝 Analyzing partnerships and integrations...")
+            partnerships = self._extract_partnership_indicators(soup)
+            
+            # Screenshot for visual analysis
+            screenshot = self._capture_screenshot_proper(url)
+            
+            # Compile comprehensive profile
+            brand_profile = {
+                "url": url,
+                "company_name": self._extract_company_name(soup, url),
+                "comprehensive_content": comprehensive_content,
+                "strategic_messaging": strategic_messaging,
+                "product_portfolio": product_portfolio,
+                "visual_identity": visual_identity,
+                "business_model": business_model,
+                "partnerships": partnerships,
+                "screenshot": screenshot,
+                "extraction_timestamp": datetime.now().isoformat()
+            }
+            
+            print(f"   ✅ COMPREHENSIVE EXTRACTION COMPLETE: {brand_profile['company_name']}")
+            
+            # Check for missing data and use AI to fill gaps
+            print("   🤖 Checking for data gaps and enhancing with AI...")
+            brand_profile = self._enhance_missing_data_with_ai(brand_profile, html_content)
+            
+            # Search external sources for additional company information
+            print("   🌐 Searching external sources for additional company data...")
+            brand_profile = self._search_external_sources(brand_profile)
+            
+            # Deep multi-page analysis (new comprehensive feature)
+            if DEEP_SCRAPING_AVAILABLE:
+                print("   🔬 DEEP ANALYSIS: Scanning multiple pages for comprehensive insights...")
+                print("   📄 This includes: About, Products, Pricing, Blog, Team, Case Studies")
+                if progress_callback:
+                    progress_callback(f"Deep analysis: {brand_profile['company_name']}")
+                brand_profile = enhance_brand_analysis_with_deep_scraping(brand_profile, progress_callback)
+                print("   ✅ Deep multi-page analysis complete")
+            else:
+                print("   ⚠️ Deep scraping not available - using homepage analysis only")
+            
+            return brand_profile
         
         except Exception as e:
             print(f"   ❌ Error extracting brand data from {url}: {e}")
