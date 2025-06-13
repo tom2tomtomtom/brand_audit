@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical AI Platform Competitive Intelligence - AI-Powered Analysis</title>
+    <style>
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #333;
+            overflow: hidden;
+        }
+        
+        /* 16:9 Slide Container */
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: none;
+            position: relative;
+            padding: 60px;
+            box-sizing: border-box;
+        }
+        
+        .slide.active {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Slide Header */
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .slide-title {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .slide-number {
+            font-size: 1.2em;
+            color: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* Navigation */
+        .slide-navigation {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-dot.active {
+            background: white;
+            transform: scale(1.2);
+        }
+        
+        .nav-button {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            font-size: 1.5em;
+            cursor: pointer;
+            border-radius: 50%;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .nav-button:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .nav-prev {
+            left: 30px;
+        }
+        
+        .nav-next {
+            right: 30px;
+        }
+        
+        /* Content Areas */
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 40px;
+            height: 100%;
+        }
+        
+        .content-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        
+        /* AI Insights Styling */
+        .ai-insight {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .ai-insight::before {
+            content: "🤖";
+            position: absolute;
+            top: -5px;
+            right: 10px;
+            font-size: 1.2em;
+        }
+        
+        .score-display {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .score-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            color: white;
+        }
+        
+        .score-high { background: #28a745; }
+        .score-medium { background: #ffc107; color: #333; }
+        .score-low { background: #dc3545; }
+        
+        .threat-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .threat-high { background: #dc3545; color: white; }
+        .threat-medium { background: #ffc107; color: #333; }
+        .threat-low { background: #28a745; color: white; }
+        
+        /* Brand Grid for Overview */
+        .brand-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .brand-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .brand-logo {
+            max-height: 40px;
+            margin-bottom: 15px;
+        }
+        
+        .brand-name {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .brand-score {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        /* SWOT Grid */
+        .swot-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            height: 100%;
+        }
+        
+        .swot-quadrant {
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+        }
+        
+        .swot-strengths { background: #28a745; }
+        .swot-weaknesses { background: #dc3545; }
+        .swot-opportunities { background: #007bff; }
+        .swot-threats { background: #ffc107; color: #333; }
+        
+        .swot-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .swot-item {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+        
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .comparison-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        /* Title Slide Specific */
+        .title-slide {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .main-title {
+            font-size: 4em;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 30px;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.8em;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 40px;
+        }
+        
+        .ai-badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.2em;
+            font-weight: 600;
+            display: inline-block;
+            margin: 20px 0;
+        }
+        
+        .date-stamp {
+            color: rgba(255,255,255,0.7);
+            font-size: 1.1em;
+            margin-top: 30px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .slide {
+                padding: 40px;
+            }
+            
+            .slide-title {
+                font-size: 2em;
+            }
+            
+            .content-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        
+        /* Print styles */
+        @media print {
+            .slide {
+                display: block !important;
+                page-break-after: always;
+                height: 297mm;
+                width: 210mm;
+            }
+            
+            .nav-button, .slide-navigation {
+                display: none;
+            }
+        }
+        
+    </style>
+    <script>
+        
+        let currentSlide = 0;
+        let totalSlides = 0;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const slides = document.querySelectorAll('.slide');
+            totalSlides = slides.length;
+            
+            // Create navigation dots
+            const navContainer = document.querySelector('.slide-navigation');
+            for (let i = 0; i < totalSlides; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'nav-dot';
+                dot.onclick = () => goToSlide(i);
+                navContainer.appendChild(dot);
+            }
+            
+            showSlide(0);
+            
+            // Keyboard navigation
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowRight' || e.key === ' ') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft') {
+                    prevSlide();
+                }
+            });
+        });
+        
+        function showSlide(n) {
+            const slides = document.querySelectorAll('.slide');
+            const dots = document.querySelectorAll('.nav-dot');
+            
+            slides.forEach(slide => slide.classList.remove('active'));
+            dots.forEach(dot => dot.classList.remove('active'));
+            
+            if (n >= totalSlides) currentSlide = 0;
+            if (n < 0) currentSlide = totalSlides - 1;
+            
+            slides[currentSlide].classList.add('active');
+            dots[currentSlide].classList.add('active');
+        }
+        
+        function nextSlide() {
+            currentSlide++;
+            if (currentSlide >= totalSlides) currentSlide = 0;
+            showSlide(currentSlide);
+        }
+        
+        function prevSlide() {
+            currentSlide--;
+            if (currentSlide < 0) currentSlide = totalSlides - 1;
+            showSlide(currentSlide);
+        }
+        
+        function goToSlide(n) {
+            currentSlide = n;
+            showSlide(currentSlide);
+        }
+        
+    </script>
+</head>
+<body>
+
+    <div class="slide title-slide" id="slide-1">
+        <div class="slide-content">
+            <h1 class="main-title">Medical AI Platform Competitive Intelligence</h1>
+            <p class="subtitle">Advanced AI-Powered Competitive Intelligence</p>
+            <div class="ai-badge">🤖 Powered by GPT-4 Strategic Analysis</div>
+            <p class="date-stamp">Generated on June 13, 2025</p>
+        </div>
+        
+        <button class="nav-button nav-next" onclick="nextSlide()">→</button>
+        
+        <div class="slide-navigation"></div>
+    </div>
+        
+    <div class="slide" id="slide-2">
+        <div class="slide-header">
+            <h2 class="slide-title">Competitive Landscape Overview</h2>
+            <div class="slide-number">Slide 2 of 8</div>
+        </div>
+        
+        <div class="slide-content">
+            <div class="ai-insight">
+                <strong>AI Market Analysis:</strong> Medium competitive intensity with 4 key players analyzed
+            </div>
+            
+            <div class="brand-overview-grid">
+                
+                <div class="brand-card">
+                    <img src="https://cdn.wolterskluwer.io/wk/fundamentals/1.15.2/logo/assets/medium.svg" class="brand-logo" alt="Logo">
+                    <div class="brand-name">Wolters Kluwer</div>
+                    <div class="brand-score score-high">82</div>
+                    <div class="threat-badge threat-medium">Medium Threat</div>
+                </div>
+            
+                <div class="brand-card">
+                    <img src="https://www.elsevier.com/images/elsevier-logo-orange.svg" class="brand-logo" alt="Logo">
+                    <div class="brand-name">Elsevier</div>
+                    <div class="brand-score score-high">85</div>
+                    <div class="threat-badge threat-medium">Medium Threat</div>
+                </div>
+            
+                <div class="brand-card">
+                    
+                    <div class="brand-name">ClinicalKey</div>
+                    <div class="brand-score score-high">82</div>
+                    <div class="threat-badge threat-medium">Medium Threat</div>
+                </div>
+            
+                <div class="brand-card">
+                    <img src="https://www.openevidence.com/_next/image?url=https%3A%2F%2Fstorage.googleapis.com%2Fopenevidence-static-files-prod%2Ffeatured-logos%2Fmayo-clinic.png&w=640&q=75" class="brand-logo" alt="Logo">
+                    <div class="brand-name">OpenEvidence</div>
+                    <div class="brand-score score-high">85</div>
+                    <div class="threat-badge threat-medium">Medium Threat</div>
+                </div>
+            
+            </div>
+        </div>
+        
+        <button class="nav-button nav-prev" onclick="prevSlide()">←</button>
+        <button class="nav-button nav-next" onclick="nextSlide()">→</button>
+    </div>
+        
+    <div class="slide" id="slide-3">
+        <div class="slide-header">
+            <h2 class="slide-title">Wolters Kluwer - AI Strategic Analysis</h2>
+            <div class="slide-number">Slide 3 of 8</div>
+        </div>
+        
+        <div class="slide-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3 class="card-title">AI Positioning Analysis</h3>
+                    <div class="ai-insight">
+                        <strong>Strategy:</strong> Innovation
+                    </div>
+                    <p><strong>Positioning:</strong> Wolters Kluwer delivers expert solutions by combining domain expertise with advanced technology to empower professionals across various sectors.</p>
+                    <p><strong>Value Prop:</strong> Providing cutting-edge, technology-enabled solutions that enhance decision-making and operational efficiency for professionals.</p>
+                    <p><strong>Competitive Advantage:</strong> Deep integration of domain expertise with advanced AI-driven technology solutions, offering tailored insights and efficiencies.</p>
+                    
+                    <div class="score-display">
+                        <div class="score-circle score-high">82</div>
+                        <div>
+                            <strong>Brand Health Score</strong><br>
+                            <span class="threat-badge threat-medium">Medium Threat</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="content-card">
+                    <h3 class="card-title">AI SWOT Analysis</h3>
+                    
+        <div class="swot-grid">
+            <div class="swot-quadrant swot-strengths">
+                <div class="swot-title">Strengths</div>
+                <div class="swot-item">Diverse Product and Solution Offerings</div><div class="swot-item">Expert Insights and Business Intelligence</div><div class="swot-item">Integration of Artificial Intelligence</div>
+            </div>
+            <div class="swot-quadrant swot-weaknesses">
+                <div class="swot-title">Weaknesses</div>
+                <div class="swot-item">Potential Over-reliance on AI Solutions</div><div class="swot-item">Limited Visibility of Unique Selling Proposition</div>
+            </div>
+            <div class="swot-quadrant swot-opportunities">
+                <div class="swot-title">Opportunities</div>
+                <div class="swot-item">Expansion in Emerging Markets</div><div class="swot-item">Development of New AI-driven Products</div>
+            </div>
+            <div class="swot-quadrant swot-threats">
+                <div class="swot-title">Threats</div>
+                <div class="swot-item">Intense Competition in Digital Solutions</div><div class="swot-item">Rapid Technological Changes</div>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+        </div>
+        
+        <button class="nav-button nav-prev" onclick="prevSlide()">←</button>
+        <button class="nav-button nav-next" onclick="nextSlide()">→</button>
+    </div>
+        
+    <div class="slide" id="slide-4">
+        <div class="slide-header">
+            <h2 class="slide-title">Elsevier - AI Strategic Analysis</h2>
+            <div class="slide-number">Slide 4 of 8</div>
+        </div>
+        
+        <div class="slide-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3 class="card-title">AI Positioning Analysis</h3>
+                    <div class="ai-insight">
+                        <strong>Strategy:</strong> Innovation
+                    </div>
+                    <p><strong>Positioning:</strong> Elsevier leverages AI-powered insights to drive better outcomes in research and healthcare, fostering innovation and inclusivity.</p>
+                    <p><strong>Value Prop:</strong> Delivering cutting-edge, AI-driven solutions that enhance research capabilities and healthcare outcomes, while promoting sustainability and inclusivity.</p>
+                    <p><strong>Competitive Advantage:</strong> A robust integration of AI technology in research and healthcare solutions, coupled with a strong commitment to sustainability and inclusivity.</p>
+                    
+                    <div class="score-display">
+                        <div class="score-circle score-high">85</div>
+                        <div>
+                            <strong>Brand Health Score</strong><br>
+                            <span class="threat-badge threat-medium">Medium Threat</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="content-card">
+                    <h3 class="card-title">AI SWOT Analysis</h3>
+                    
+        <div class="swot-grid">
+            <div class="swot-quadrant swot-strengths">
+                <div class="swot-title">Strengths</div>
+                <div class="swot-item">Strong brand recognition</div><div class="swot-item">Innovative product features</div>
+            </div>
+            <div class="swot-quadrant swot-weaknesses">
+                <div class="swot-title">Weaknesses</div>
+                <div class="swot-item">Limited customer support channels</div><div class="swot-item">High product pricing</div>
+            </div>
+            <div class="swot-quadrant swot-opportunities">
+                <div class="swot-title">Opportunities</div>
+                <div class="swot-item">Expansion into emerging markets</div><div class="swot-item">Partnerships with complementary brands</div>
+            </div>
+            <div class="swot-quadrant swot-threats">
+                <div class="swot-title">Threats</div>
+                <div class="swot-item">Intense competition from established brands</div><div class="swot-item">Rapid technological changes</div>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+        </div>
+        
+        <button class="nav-button nav-prev" onclick="prevSlide()">←</button>
+        <button class="nav-button nav-next" onclick="nextSlide()">→</button>
+    </div>
+        
+    <div class="slide" id="slide-5">
+        <div class="slide-header">
+            <h2 class="slide-title">ClinicalKey - AI Strategic Analysis</h2>
+            <div class="slide-number">Slide 5 of 8</div>
+        </div>
+        
+        <div class="slide-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3 class="card-title">AI Positioning Analysis</h3>
+                    <div class="ai-insight">
+                        <strong>Strategy:</strong> Innovation
+                    </div>
+                    <p><strong>Positioning:</strong> ClinicalKey is the leading clinical search engine that empowers healthcare professionals with the most comprehensive and trusted medical information.</p>
+                    <p><strong>Value Prop:</strong> Delivering fast, accurate, and comprehensive medical information to enhance clinical decision-making.</p>
+                    <p><strong>Competitive Advantage:</strong> A vast repository of medical content, including peer-reviewed journals, books, and multimedia resources, combined with advanced search capabilities.</p>
+                    
+                    <div class="score-display">
+                        <div class="score-circle score-high">82</div>
+                        <div>
+                            <strong>Brand Health Score</strong><br>
+                            <span class="threat-badge threat-medium">Medium Threat</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="content-card">
+                    <h3 class="card-title">AI SWOT Analysis</h3>
+                    
+        <div class="swot-grid">
+            <div class="swot-quadrant swot-strengths">
+                <div class="swot-title">Strengths</div>
+                <div class="swot-item">Strong brand recognition</div><div class="swot-item">Innovative product features</div>
+            </div>
+            <div class="swot-quadrant swot-weaknesses">
+                <div class="swot-title">Weaknesses</div>
+                <div class="swot-item">Limited online customer support</div><div class="swot-item">High product pricing</div>
+            </div>
+            <div class="swot-quadrant swot-opportunities">
+                <div class="swot-title">Opportunities</div>
+                <div class="swot-item">Expansion into emerging markets</div><div class="swot-item">Leveraging AI for personalized marketing</div>
+            </div>
+            <div class="swot-quadrant swot-threats">
+                <div class="swot-title">Threats</div>
+                <div class="swot-item">Intense competition from new entrants</div><div class="swot-item">Changing regulatory environment</div>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+        </div>
+        
+        <button class="nav-button nav-prev" onclick="prevSlide()">←</button>
+        <button class="nav-button nav-next" onclick="nextSlide()">→</button>
+    </div>
+        
+    <div class="slide" id="slide-6">
+        <div class="slide-header">
+            <h2 class="slide-title">OpenEvidence - AI Strategic Analysis</h2>
+            <div class="slide-number">Slide 6 of 8</div>
+        </div>
+        
+        <div class="slide-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3 class="card-title">AI Positioning Analysis</h3>
+                    <div class="ai-insight">
+                        <strong>Strategy:</strong> Innovation
+                    </div>
+                    <p><strong>Positioning:</strong> OpenEvidence is the leading medical information platform, trusted by over 10,000 care centers across the United States, offering cutting-edge solutions on iOS and Android.</p>
+                    <p><strong>Value Prop:</strong> Providing reliable, accessible, and innovative medical information to healthcare professionals.</p>
+                    <p><strong>Competitive Advantage:</strong> A robust network of partnerships with top care centers and a strong reputation for reliability and innovation.</p>
+                    
+                    <div class="score-display">
+                        <div class="score-circle score-high">85</div>
+                        <div>
+                            <strong>Brand Health Score</strong><br>
+                            <span class="threat-badge threat-medium">Medium Threat</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="content-card">
+                    <h3 class="card-title">AI SWOT Analysis</h3>
+                    
+        <div class="swot-grid">
+            <div class="swot-quadrant swot-strengths">
+                <div class="swot-title">Strengths</div>
+                <div class="swot-item">Strong brand recognition</div><div class="swot-item">Innovative product features</div>
+            </div>
+            <div class="swot-quadrant swot-weaknesses">
+                <div class="swot-title">Weaknesses</div>
+                <div class="swot-item">Limited customer service availability</div><div class="swot-item">High product pricing</div>
+            </div>
+            <div class="swot-quadrant swot-opportunities">
+                <div class="swot-title">Opportunities</div>
+                <div class="swot-item">Expansion into emerging markets</div><div class="swot-item">Leveraging AI for enhanced customer experience</div>
+            </div>
+            <div class="swot-quadrant swot-threats">
+                <div class="swot-title">Threats</div>
+                <div class="swot-item">Intense competition from new entrants</div><div class="swot-item">Regulatory changes</div>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+        </div>
+        
+        <button class="nav-button nav-prev" onclick="prevSlide()">←</button>
+        <button class="nav-button nav-next" onclick="nextSlide()">→</button>
+    </div>
+        
+    <div class="slide" id="slide-7">
+        <div class="slide-header">
+            <h2 class="slide-title">Cross-Brand Competitive Intelligence</h2>
+            <div class="slide-number">Slide 7 of 8</div>
+        </div>
+        
+        <div class="slide-content">
+            
+            <div class="ai-insight">
+                <strong>AI Market Intelligence:</strong><br>
+                • Competitive Intensity: Medium<br>
+                • Market Maturity: Mature<br>
+                • Innovation Pace: Moderate
+            </div>
+            
+            
+            <div class="content-card" style="margin-top: 20px;">
+                <h3 class="card-title">AI-Powered Competitive Comparison</h3>
+                <table class="comparison-table">
+                    <tr><th>Metric</th><th>Wolters Kluwer</th><th>Elsevier</th><th>ClinicalKey</th><th>OpenEvidence</th></tr><tr><td><strong>Health Score</strong></td><td><strong>82/100</strong></td><td><strong>85/100</strong></td><td><strong>82/100</strong></td><td><strong>85/100</strong></td></tr><tr><td><strong>Threat Level</strong></td><td><span class="threat-badge threat-medium">Medium</span></td><td><span class="threat-badge threat-medium">Medium</span></td><td><span class="threat-badge threat-medium">Medium</span></td><td><span class="threat-badge threat-medium">Medium</span></td></tr><tr><td><strong>Primary Strategy</strong></td><td>Innovation</td><td>Innovation</td><td>Innovation</td><td>Innovation</td></tr>
+                </table>
+            </div>
+        </div>
+        
+        <button class="nav-button nav-prev" onclick="prevSlide()">←</button>
+        <button class="nav-button nav-next" onclick="nextSlide()">→</button>
+    </div>
+        
+    <div class="slide" id="slide-8">
+        <div class="slide-header">
+            <h2 class="slide-title">Strategic Recommendations & Market Opportunities</h2>
+            <div class="slide-number">Slide 8 of 8</div>
+        </div>
+        
+        <div class="slide-content">
+            
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3 class="card-title">AI Strategic Recommendations</h3>
+                    <div class="ai-insight">
+                        <strong>Recommended Positioning:</strong> AI-driven personalized solutions for healthcare and research
+                    </div>
+                    <p><strong>Target Segment:</strong> Healthcare professionals and academic researchers</p>
+                    <p><strong>Differentiation Strategy:</strong> Focus on delivering personalized insights and recommendations through AI, enhancing user engagement and outcomes</p>
+                </div>
+                
+                <div class="content-card">
+                    <h3 class="card-title">Market Opportunities</h3>
+                    <div class="ai-insight">• Integration of AI with personalized user experiences (Large opportunity)</div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <button class="nav-button nav-prev" onclick="prevSlide()">←</button>
+    </div>
+        
+</body>
+</html>

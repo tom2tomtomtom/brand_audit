@@ -47,7 +47,7 @@ def test_single_brand_analysis():
         
         if response.status_code == 200:
             data = response.json()
-            analysis = data.get('analysis', {})
+            analysis = data.get('data', {})
             
             print(f"✅ Successfully analyzed {test_url}")
             print(f"   Brand Name: {analysis.get('company_name', 'Not found')}")
@@ -55,8 +55,8 @@ def test_single_brand_analysis():
             print(f"   Logo Found: {'✓' if analysis.get('logo_base64') else '✗'}")
             print(f"   Positioning: {analysis.get('brand_positioning', 'Not found')[:50]}...")
             
-            # Validate REAL data
-            if analysis.get('data_source') != 'REAL_EXTRACTION':
+            # Validate REAL data  
+            if analysis.get('status') != 'REAL_DATA_EXTRACTED':
                 print("❌ FAKE DATA DETECTED - FAILURE")
                 return False
             
@@ -92,7 +92,7 @@ def test_multi_brand_grid():
         }
         
         response = requests.post(
-            f"{RAILWAY_URL}/api/generate-real-grid",
+            f"{RAILWAY_URL}/api/grid-real",
             json=payload,
             timeout=60  # Give more time for multiple sites
         )
@@ -116,7 +116,8 @@ def test_multi_brand_grid():
                 print("❌ REAL DATA indicator missing - FAILURE")
                 return False
             
-            if 'FAKE' in html_content.upper():
+            # Check for fake data (but exclude "NO FAKE DATA" statements)
+            if 'FAKE DATA' in html_content and 'NO FAKE DATA' not in html_content:
                 print("❌ FAKE data detected in output - FAILURE") 
                 return False
             
@@ -152,10 +153,10 @@ def validate_html_structure(filename):
             html_content = f.read()
         
         required_elements = [
-            'class="real-logo"',           # Real logos
-            'class="color-swatch"',        # Color swatches  
-            'class="positioning-text"',    # Brand positioning
-            'class="real-data-badge"',     # Real data indicators
+            'class="brand-logo"',          # Real logos
+            'class="color-box"',           # Color swatches  
+            'class="positioning"',         # Brand positioning
+            'class="real-badge"',          # Real data indicators
             'background-color: #',         # Actual color values
         ]
         
@@ -172,9 +173,9 @@ def validate_html_structure(filename):
         
         # Count visual elements
         import re
-        color_swatches = len(re.findall(r'class="color-swatch"', html_content))
-        logo_elements = len(re.findall(r'class="real-logo"', html_content))
-        brand_columns = len(re.findall(r'class="brand-column"', html_content))
+        color_swatches = len(re.findall(r'class="color-box"', html_content))
+        logo_elements = len(re.findall(r'class="brand-logo"', html_content))
+        brand_columns = len(re.findall(r'class="brand-card"', html_content))
         
         print(f"📊 Visual elements found:")
         print(f"   - Brand columns: {brand_columns}")

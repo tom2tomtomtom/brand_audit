@@ -20,6 +20,10 @@ import numpy as np
 from sklearn.cluster import KMeans
 import colorsys
 from datetime import datetime
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -30,6 +34,7 @@ class CompetitiveGridGenerator:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
+        self.driver = None
     
     def fetch_page(self, url):
         """Fetch webpage content with error handling"""
@@ -157,28 +162,56 @@ class CompetitiveGridGenerator:
             return ['#666666', '#999999', '#cccccc', '#e9ecef', '#f8f9fa', '#ffffff']
     
     def extract_brand_info(self, html_content, url):
-        """Extract brand information using AI"""
-        truncated_html = html_content[:15000]
+        """Extract comprehensive brand information using AI"""
+        
+        # Use more content for better analysis
+        truncated_html = html_content[:25000]
+        
+        # Extract specific sections for better analysis
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Get hero section
+        hero_text = ""
+        hero_selectors = ['h1', '.hero', '[class*="hero"]', '.banner', '.main-heading']
+        for selector in hero_selectors:
+            elements = soup.select(selector)
+            for elem in elements[:3]:
+                hero_text += elem.get_text().strip() + " "
+        
+        # Get about/description text  
+        about_text = ""
+        about_selectors = ['[class*="about"]', '[class*="description"]', 'p']
+        for selector in about_selectors:
+            elements = soup.select(selector)
+            for elem in elements[:5]:
+                text = elem.get_text().strip()
+                if len(text) > 50:
+                    about_text += text + " "
         
         messages = [
-            {"role": "system", "content": "You are an expert brand analyst. Extract detailed brand information from webpage content."},
+            {"role": "system", "content": "You are an expert brand analyst specializing in medical/healthcare technology companies. Extract detailed, accurate brand information from webpage content."},
             {"role": "user", "content": f"""
-            Analyze the following webpage content and extract comprehensive brand information.
+            DEEP ANALYSIS REQUEST: Analyze this medical/healthcare company's webpage and extract comprehensive brand information.
+            
+            URL: {url}
+            
+            Hero Section Text: {hero_text[:1000]}
+            About/Description Text: {about_text[:2000]}
             
             Return your response as valid JSON with these exact keys:
             {{
-                "company_name": "Official company/brand name",
-                "brand_positioning": "Main value proposition and positioning statement (2-3 sentences from hero section)",
-                "personality_descriptors": ["Confident", "Modern", "Trustworthy", "Innovative"], // 4-6 adjectives that describe brand voice/personality
-                "primary_messages": ["Key message 1", "Key message 2", "Key message 3"], // Main value propositions
-                "target_audience": "Primary target customer description",
-                "brand_voice": "Description of communication style and tone",
-                "visual_style": "Description of visual design approach"
+                "company_name": "Exact official company/brand name (not generic)",
+                "brand_positioning": "Complete value proposition and positioning statement (3-4 sentences describing what they do and their unique value)",
+                "personality_descriptors": ["Specific", "Unique", "Descriptive", "Adjectives", "About", "Brand"], // 6 specific adjectives that capture their brand personality
+                "primary_messages": ["Key message 1", "Key message 2", "Key message 3"], // Main value propositions from homepage
+                "target_audience": "Specific target customer description (be detailed about who uses their products)",
+                "brand_voice": "Detailed description of communication style and tone",
+                "visual_style": "Detailed description of visual design approach and brand aesthetics"
             }}
             
-            Focus on extracting the hero headline, main value propositions, and brand personality from the content.
+            Focus on being specific and accurate. Extract real information, not generic descriptions.
             
-            Webpage content:
+            Full webpage content:
             {truncated_html}
             """}
         ]
@@ -201,6 +234,333 @@ class CompetitiveGridGenerator:
             print(f"Error extracting brand info: {e}")
             return self._get_default_brand_info()
     
+    def capture_screenshot(self, url):
+        """Capture homepage screenshot using Selenium"""
+        try:
+            if not self.driver:
+                chrome_options = Options()
+                chrome_options.add_argument('--headless')
+                chrome_options.add_argument('--no-sandbox')
+                chrome_options.add_argument('--disable-dev-shm-usage')
+                chrome_options.add_argument('--window-size=1200,800')
+                self.driver = webdriver.Chrome(options=chrome_options)
+            
+            self.driver.get(url)
+            time.sleep(3)  # Wait for page to load
+            
+            # Take screenshot
+            screenshot = self.driver.get_screenshot_as_png()
+            
+            # Convert to base64
+            screenshot_b64 = base64.b64encode(screenshot).decode('utf-8')
+            return f"data:image/png;base64,{screenshot_b64}"
+            
+        except Exception as e:
+            print(f"Screenshot capture failed for {url}: {e}")
+            return None
+    
+    def extract_better_colors(self, html_content, url):
+        """Enhanced color extraction with better filtering"""
+        try:
+            # First try screenshot-based color extraction
+            if not self.driver:
+                chrome_options = Options()
+                chrome_options.add_argument('--headless')
+                chrome_options.add_argument('--no-sandbox')
+                chrome_options.add_argument('--disable-dev-shm-usage')
+                chrome_options.add_argument('--window-size=1200,800')
+                self.driver = webdriver.Chrome(options=chrome_options)
+            
+            self.driver.get(url)
+            time.sleep(2)
+            
+            # Get screenshot for color analysis
+            screenshot = self.driver.get_screenshot_as_png()
+            img = Image.open(io.BytesIO(screenshot))
+            
+            # Convert to RGB and get dominant colors
+            img_rgb = img.convert('RGB')
+            img_array = np.array(img_rgb)
+            pixels = img_array.reshape(-1, 3)
+            
+            # Filter out common web colors (white, black, grays)
+            filtered_pixels = []
+            for pixel in pixels:
+                r, g, b = pixel
+                # Skip very light, very dark, or very gray colors
+                if not (all(c > 240 for c in [r,g,b]) or all(c < 15 for c in [r,g,b]) or 
+                       (max(r,g,b) - min(r,g,b) < 30)):
+                    filtered_pixels.append(pixel)
+            
+            if len(filtered_pixels) > 100:
+                # Use K-means to find dominant colors
+                kmeans = KMeans(n_clusters=6, random_state=42, n_init=10)
+                kmeans.fit(filtered_pixels[:5000])  # Sample for performance
+                
+                hex_colors = []
+                for center in kmeans.cluster_centers_:
+                    r, g, b = [int(c) for c in center]
+                    hex_color = f"#{r:02X}{g:02X}{b:02X}"
+                    hex_colors.append(hex_color)
+                
+                return hex_colors
+            
+        except Exception as e:
+            print(f"Enhanced color extraction failed for {url}: {e}")
+        
+        # Fallback to CSS-based extraction
+        return self.extract_colors_from_html(html_content)
+    
+    def extract_logos_deep(self, html_content, base_url):
+        """Deep logo extraction with multiple approaches"""
+        soup = BeautifulSoup(html_content, 'html.parser')
+        logo_urls = []
+        
+        print("     🔍 Searching header logos...")
+        # More comprehensive logo selectors
+        logo_selectors = [
+            'img[alt*="logo" i]',
+            'img[src*="logo" i]', 
+            'img[class*="logo" i]',
+            '.logo img',
+            '.header img',
+            '.navbar img',
+            '.brand img',
+            'header img',
+            '.site-logo img',
+            '.company-logo img',
+            '[class*="brand"] img',
+            '[id*="logo"] img'
+        ]
+        
+        for selector in logo_selectors:
+            elements = soup.select(selector)
+            for img in elements:
+                src = img.get('src') or img.get('data-src')
+                if src and self._is_likely_logo(src, img.get('alt', '')):
+                    full_url = urljoin(base_url, src)
+                    if full_url not in logo_urls:
+                        logo_urls.append(full_url)
+                        print(f"     ✓ Found logo: {src}")
+        
+        print(f"     📊 Total logos found: {len(logo_urls)}")
+        return logo_urls[:3]  # Return top 3
+    
+    def extract_colors_deep(self, html_content, url):
+        """Deep color extraction with multiple methods"""
+        print("     🎨 Analyzing CSS files...")
+        soup = BeautifulSoup(html_content, 'html.parser')
+        all_colors = set()
+        
+        # Extract from inline styles
+        for element in soup.find_all(style=True):
+            style = element.get('style', '')
+            colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)', style)
+            all_colors.update(colors)
+        
+        # Extract from style tags
+        for style_tag in soup.find_all('style'):
+            css_content = style_tag.get_text()
+            colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)', css_content)
+            all_colors.update(colors)
+        
+        # Extract from linked CSS files
+        for link in soup.find_all('link', rel='stylesheet'):
+            href = link.get('href')
+            if href:
+                css_url = urljoin(url, href)
+                try:
+                    css_response = self.session.get(css_url, timeout=10)
+                    if css_response.status_code == 200:
+                        css_colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)', css_response.text)
+                        all_colors.update(css_colors)
+                        print(f"     ✓ Analyzed CSS file: {href}")
+                except:
+                    pass
+        
+        # Process and filter colors
+        processed_colors = self._process_colors(list(all_colors))
+        print(f"     📊 Extracted {len(processed_colors)} brand colors")
+        return processed_colors
+    
+    def capture_screenshot_proper(self, url):
+        """Proper screenshot capture with error handling"""
+        try:
+            print("     📸 Setting up browser...")
+            
+            chrome_options = Options()
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--window-size=1200,800')
+            chrome_options.add_argument('--disable-web-security')
+            chrome_options.add_argument('--allow-running-insecure-content')
+            
+            # Try to create driver
+            driver = webdriver.Chrome(options=chrome_options)
+            
+            print("     🌐 Loading webpage...")
+            driver.get(url)
+            
+            print("     ⏳ Waiting for page load...")
+            time.sleep(5)  # Wait for page to fully load
+            
+            # Scroll to capture more content
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3);")
+            time.sleep(2)
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(2)
+            
+            print("     📷 Taking screenshot...")
+            screenshot = driver.get_screenshot_as_png()
+            
+            # Convert to base64
+            screenshot_b64 = base64.b64encode(screenshot).decode('utf-8')
+            
+            driver.quit()
+            print("     ✓ Screenshot captured successfully")
+            return f"data:image/png;base64,{screenshot_b64}"
+            
+        except Exception as e:
+            print(f"     ❌ Screenshot failed: {e}")
+            try:
+                if 'driver' in locals():
+                    driver.quit()
+            except:
+                pass
+            return None
+    
+    def _extract_content_sections(self, soup):
+        """Extract different content sections for comprehensive analysis"""
+        sections = {}
+        
+        # Hero section
+        hero_selectors = ['h1', '.hero', '[class*="hero"]', '.banner', '.jumbotron']
+        sections['hero'] = []
+        for selector in hero_selectors:
+            elements = soup.select(selector)
+            for elem in elements[:3]:
+                text = elem.get_text().strip()
+                if text and len(text) > 10:
+                    sections['hero'].append(text)
+        
+        # Navigation and key sections
+        sections['navigation'] = []
+        nav_elements = soup.select('nav a, .nav a, .menu a')
+        for nav in nav_elements[:10]:
+            text = nav.get_text().strip()
+            if text:
+                sections['navigation'].append(text)
+        
+        # Feature/product descriptions
+        sections['features'] = []
+        feature_selectors = ['.feature', '[class*="product"]', '[class*="service"]', '.card']
+        for selector in feature_selectors:
+            elements = soup.select(selector)
+            for elem in elements[:5]:
+                text = elem.get_text().strip()
+                if len(text) > 30:
+                    sections['features'].append(text[:200])
+        
+        # About/company information
+        sections['about'] = []
+        about_selectors = ['[class*="about"]', '[class*="company"]', '[class*="mission"]']
+        for selector in about_selectors:
+            elements = soup.select(selector)
+            for elem in elements[:3]:
+                text = elem.get_text().strip()
+                if len(text) > 50:
+                    sections['about'].append(text[:300])
+        
+        return sections
+    
+    def extract_brand_info_comprehensive(self, html_content, url, content_sections):
+        """Enhanced AI brand analysis with structured content"""
+        
+        # Create comprehensive context
+        context = f"""
+        URL: {url}
+        
+        HERO CONTENT: {' | '.join(content_sections.get('hero', [])[:3])}
+        
+        KEY NAVIGATION: {' | '.join(content_sections.get('navigation', [])[:8])}
+        
+        FEATURES/SERVICES: {' | '.join(content_sections.get('features', [])[:3])}
+        
+        ABOUT/COMPANY: {' | '.join(content_sections.get('about', [])[:2])}
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are a senior brand strategist analyzing medical/healthcare technology companies. Provide detailed, specific insights based on actual content."},
+            {"role": "user", "content": f"""
+            COMPREHENSIVE BRAND ANALYSIS REQUEST
+            
+            Analyze this medical/healthcare company's website and provide detailed brand intelligence.
+            
+            {context}
+            
+            Based on the actual content above, return JSON with these keys:
+            {{
+                "company_name": "Official company name (extract from content, not URL)",
+                "brand_positioning": "Specific value proposition based on actual hero/feature content (3-4 sentences)",
+                "personality_descriptors": ["6", "specific", "adjectives", "based", "on", "content"], 
+                "primary_messages": ["Actual key message 1", "Actual key message 2", "Actual key message 3"],
+                "target_audience": "Specific audience based on content analysis",
+                "brand_voice": "Communication style based on actual copy",
+                "visual_style": "Design approach based on page structure"
+            }}
+            
+            Extract REAL information from the content provided. Be specific and accurate.
+            """}
+        ]
+        
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                temperature=0.1,  # Lower temperature for more consistent results
+                max_tokens=1200
+            )
+            
+            content = response.choices[0].message.content.strip()
+            # Clean up response
+            content = re.sub(r"```(json)?", "", content).strip()
+            content = content.replace("```", "").strip()
+            
+            # Try to find JSON in response
+            if '{' in content:
+                start = content.find('{')
+                end = content.rfind('}') + 1
+                json_content = content[start:end]
+                parsed_response = json.loads(json_content)
+            else:
+                raise ValueError("No JSON found in response")
+            
+            return parsed_response
+        except Exception as e:
+            print(f"     ❌ AI analysis failed: {e}")
+            return self._get_default_brand_info()
+    
+    def extract_logos_comprehensive(self, html_content, base_url):
+        """Comprehensive logo extraction with multiple methods"""
+        return self.extract_logos_deep(html_content, base_url)
+    
+    def extract_colors_comprehensive(self, html_content, url):
+        """Comprehensive color extraction"""
+        return self.extract_colors_deep(html_content, url)
+    
+    def _analyze_visual_elements(self, soup):
+        """Analyze visual design elements"""
+        elements = {
+            'has_hero_image': bool(soup.select('.hero img, [class*="hero"] img')),
+            'button_styles': len(soup.select('button, .btn, [class*="button"]')),
+            'card_elements': len(soup.select('.card, [class*="card"]')),
+            'icon_usage': len(soup.select('svg, .icon, [class*="icon"]')),
+            'typography_elements': len(soup.select('h1, h2, h3, h4, h5, h6'))
+        }
+        return elements
+    
     def _get_default_brand_info(self):
         """Return default brand info structure"""
         return {
@@ -214,53 +574,80 @@ class CompetitiveGridGenerator:
         }
     
     def analyze_brand(self, url):
-        """Analyze a single brand for the grid"""
-        print(f"Analyzing brand: {url}")
+        """Comprehensive brand analysis with thorough extraction"""
+        print(f"🔍 COMPREHENSIVE ANALYSIS: {url}")
         
         # Fetch webpage content
         html_content = self.fetch_page(url)
         if not html_content:
             return None
         
-        # Extract brand information
-        brand_info = self.extract_brand_info(html_content, url)
+        print("   📊 Analyzing page structure...")
+        soup = BeautifulSoup(html_content, 'html.parser')
         
-        # Extract logos
-        logos = self.extract_logos(html_content, url)
+        # Extract multiple content sections for comprehensive analysis
+        print("   📝 Extracting content sections...")
+        content_sections = self._extract_content_sections(soup)
         
-        # Extract colors
-        colors = self.extract_colors_from_html(html_content)
+        print("   🧠 Deep AI brand analysis...")
+        # Extract brand information with comprehensive content
+        brand_info = self.extract_brand_info_comprehensive(html_content, url, content_sections)
         
-        # Compile brand profile for grid
+        print("   🖼️ Comprehensive logo search...")
+        # Extract logos with multiple methods
+        logos = self.extract_logos_comprehensive(html_content, url)
+        
+        print("   🎨 Advanced color analysis...")
+        # Extract colors from multiple sources
+        colors = self.extract_colors_comprehensive(html_content, url)
+        
+        print("   📸 Capturing homepage screenshot...")
+        # Capture screenshot
+        screenshot = self.capture_screenshot_proper(url)
+        
+        print("   🔬 Analyzing visual elements...")
+        # Extract additional visual information
+        visual_elements = self._analyze_visual_elements(soup)
+        
+        print("   ✅ Compiling comprehensive brand profile...")
+        
+        # Compile comprehensive brand profile
         brand_profile = {
             "url": url,
-            "company_name": brand_info.get("company_name", "Unknown"),
-            "brand_positioning": brand_info.get("brand_positioning", ""),
-            "personality_descriptors": brand_info.get("personality_descriptors", [])[:4],  # Limit to 4
-            "color_palette": colors[:6],  # Limit to 6 colors
+            "company_name": brand_info.get("company_name", "Unknown Company"),
+            "brand_positioning": brand_info.get("brand_positioning", "No positioning available"),
+            "personality_descriptors": brand_info.get("personality_descriptors", ["Professional", "Reliable"])[:6],
+            "primary_messages": brand_info.get("primary_messages", ["Quality solutions"]),
+            "target_audience": brand_info.get("target_audience", "Healthcare professionals"),
+            "brand_voice": brand_info.get("brand_voice", "Professional"),
+            "color_palette": colors[:6] if colors else ["#666666", "#999999", "#cccccc"],
             "logo_url": logos[0] if logos else None,
-            "visual_style": brand_info.get("visual_style", ""),
-            "analysis_timestamp": datetime.now().isoformat()
+            "visual_style": brand_info.get("visual_style", "Modern and clean"),
+            "screenshot": screenshot,
+            "visual_elements": visual_elements,
+            "analysis_timestamp": datetime.now().isoformat(),
+            "analysis_depth": "comprehensive"
         }
         
+        print(f"   ✅ ANALYSIS COMPLETE: {brand_profile['company_name']}")
+        print(f"      Logo: {'✓' if brand_profile['logo_url'] else '✗'}")
+        print(f"      Colors: {len(brand_profile['color_palette'])}")
+        print(f"      Screenshot: {'✓' if brand_profile['screenshot'] else '✗'}")
+        print(f"      Personality traits: {len(brand_profile['personality_descriptors'])}")
+        
         return brand_profile
+    
+    def cleanup(self):
+        """Clean up resources"""
+        if self.driver:
+            self.driver.quit()
+            self.driver = None
     
     def generate_grid_html(self, brand_profiles, page_title="There is a huge opportunity in the category"):
         """Generate the exact 5-row competitive landscape grid as HTML"""
         
-        # Ensure we have 10 brands (pad with empty slots if needed)
-        while len(brand_profiles) < 10:
-            brand_profiles.append({
-                "company_name": f"Brand {len(brand_profiles) + 1}",
-                "brand_positioning": "Analysis pending...",
-                "personality_descriptors": ["TBD", "TBD", "TBD", "TBD"],
-                "color_palette": ["#e9ecef", "#dee2e6", "#ced4da", "#adb5bd", "#6c757d", "#495057"],
-                "logo_url": None,
-                "visual_style": "Pending analysis"
-            })
-        
-        # Truncate to 10 brands if more provided
-        brand_profiles = brand_profiles[:10]
+        # Use actual number of brands analyzed (no padding or truncating)
+        num_brands = len(brand_profiles)
         
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -339,7 +726,7 @@ class CompetitiveGridGenerator:
         
         .brand-grid {{
             display: grid;
-            grid-template-columns: repeat(10, 1fr);
+            grid-template-columns: repeat({num_brands}, 1fr);
             grid-template-rows: 70px 140px 90px 70px 180px;
             gap: 12px;
             min-height: 550px;
@@ -617,8 +1004,15 @@ class CompetitiveGridGenerator:
                 
                 <!-- Row 5: Visual Assets -->
                 <div class="visual-cell {col_class}">
-                    <div class="screenshot-container">
-                        <div class="screenshot-placeholder">Homepage Screenshot</div>
+                    <div class="screenshot-container">"""
+            
+            # Add actual screenshot or placeholder
+            if brand.get("screenshot"):
+                html_content += f'<img src="{brand["screenshot"]}" alt="Homepage Screenshot" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">'
+            else:
+                html_content += '<div class="screenshot-placeholder">Homepage Screenshot</div>'
+            
+            html_content += f"""
                     </div>
                     <div class="visual-assets-list">{brand["visual_style"]} • Brand materials</div>
                 </div>"""
@@ -643,16 +1037,28 @@ class CompetitiveGridGenerator:
         
         # Analyze all brands
         brand_profiles = []
-        for url in urls:
-            try:
-                profile = self.analyze_brand(url)
-                if profile:
-                    brand_profiles.append(profile)
-                    print(f"✓ Analyzed: {profile['company_name']}")
-                else:
-                    print(f"✗ Failed to analyze: {url}")
-            except Exception as e:
-                print(f"✗ Error analyzing {url}: {e}")
+        seen_companies = set()
+        
+        try:
+            for url in urls:
+                try:
+                    profile = self.analyze_brand(url)
+                    if profile:
+                        company_name = profile['company_name']
+                        # Deduplicate by company name
+                        if company_name not in seen_companies:
+                            brand_profiles.append(profile)
+                            seen_companies.add(company_name)
+                            print(f"✓ Analyzed: {company_name}")
+                        else:
+                            print(f"⚠ Skipped duplicate: {company_name}")
+                    else:
+                        print(f"✗ Failed to analyze: {url}")
+                except Exception as e:
+                    print(f"✗ Error analyzing {url}: {e}")
+        finally:
+            # Always cleanup driver
+            self.cleanup()
         
         # Generate HTML report
         html_content = self.generate_grid_html(brand_profiles, page_title)
@@ -675,27 +1081,23 @@ class CompetitiveGridGenerator:
 def main():
     """Example usage of the competitive grid generator"""
     
-    # Financial services example (as shown in your requirements)
-    financial_urls = [
-        "https://www.tdameritrade.com",
-        "https://www.edwardjones.com", 
-        "https://www.schwab.com",
-        "https://www.johnhancock.com",
-        "https://www.prudential.com",
-        "https://www.fidelity.com",
-        "https://www.vanguard.com",
-        "https://www.ml.com",
-        "https://www.morganstanley.com",
-        "https://www.ameriprise.com"
+    # Medical/Healthcare information platforms - comprehensive analysis
+    medical_urls = [
+        "https://www.wolterskluwer.com",
+        "https://www.elsevier.com",
+        "https://www.clinicalkey.com",
+        "https://www.openevidence.com",
+        "https://www.dynamed.com",
+        "https://www.uptodate.com"
     ]
     
     generator = CompetitiveGridGenerator()
     
     # Generate the exact grid you specified
     output_file = generator.generate_competitive_landscape_report(
-        urls=financial_urls,
-        page_title="There is a huge opportunity in the category",
-        output_filename="competitive_landscape_grid.html"
+        urls=medical_urls,
+        page_title="Medical Information & AI Platform Competitive Landscape",
+        output_filename="medical_competitive_landscape_grid.html"
     )
     
     if output_file:

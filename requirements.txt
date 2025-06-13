@@ -9,3 +9,5 @@ openpyxl
 numpy
 scikit-learn
 Pillow
+selenium
+webdriver-manager
