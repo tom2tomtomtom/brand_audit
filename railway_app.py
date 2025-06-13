@@ -554,6 +554,50 @@ def health():
             'error': str(e)
         }), 500
 
+@app.route('/debug')
+def debug():
+    """Debug endpoint to check system status"""
+    import sys
+    import traceback
+    
+    debug_info = {
+        'system_available': SYSTEM_AVAILABLE,
+        'python_version': sys.version,
+        'openai_key_present': bool(os.environ.get('OPENAI_API_KEY')),
+        'environment': dict(os.environ),
+        'import_error': None,
+        'modules_loaded': list(sys.modules.keys())
+    }
+    
+    # Try importing again to get the actual error
+    try:
+        from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+        debug_info['import_status'] = 'Success'
+    except Exception as e:
+        debug_info['import_error'] = str(e)
+        debug_info['import_traceback'] = traceback.format_exc()
+    
+    # Check dependencies
+    try:
+        import openai
+        debug_info['openai_module'] = 'Loaded'
+    except:
+        debug_info['openai_module'] = 'Failed'
+        
+    try:
+        import selenium
+        debug_info['selenium_module'] = 'Loaded'
+    except:
+        debug_info['selenium_module'] = 'Failed'
+        
+    try:
+        import pandas
+        debug_info['pandas_module'] = 'Loaded'
+    except:
+        debug_info['pandas_module'] = 'Failed'
+    
+    return jsonify(debug_info)
+
 @app.route('/api/generate-premium', methods=['POST'])
 def generate_premium():
     """Generate premium competitive intelligence report"""
