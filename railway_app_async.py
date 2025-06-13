@@ -52,7 +52,7 @@ CORS(app)
 jobs = defaultdict(dict)
 job_lock = threading.Lock()
 
-def run_analysis_job(job_id, urls):
+def run_analysis_job(job_id, companies_or_urls):
     """Run analysis in background thread"""
     with job_lock:
         jobs[job_id]['status'] = 'running'
@@ -75,8 +75,9 @@ def run_analysis_job(job_id, urls):
         temp_dir = tempfile.gettempdir()
         output_filename = os.path.join(temp_dir, f"brandintell_{job_id}.html")
         
+        # Pass companies_or_urls directly - the method will handle conversion
         output_file = generator.generate_strategic_intelligence_report(
-            urls=urls,
+            companies_or_urls=companies_or_urls,
             report_title="Brandintell Comprehensive Intelligence Analysis",
             output_filename=output_filename,
             progress_callback=progress_callback
@@ -316,9 +317,12 @@ WEB_INTERFACE_TEMPLATE = """
         <div class="content">
             <div class="url-form">
                 <div class="form-group">
-                    <label for="url-input">Add Competitor URLs (2-15 companies):</label>
-                    <input type="url" id="url-input" class="url-input" placeholder="https://www.example.com" />
-                    <button type="button" class="add-url-btn" onclick="addUrl()">Add URL</button>
+                    <label for="url-input">Add Competitors (2-15 companies):</label>
+                    <input type="text" id="url-input" class="url-input" placeholder="Microsoft  OR  Apple, USA  OR  https://www.example.com" />
+                    <button type="button" class="add-url-btn" onclick="addUrl()">Add Company</button>
+                    <small style="display: block; margin-top: 5px; color: #666;">
+                        Enter: Company name, URL, or "Company, Country" (e.g., "Microsoft" or "Apple, USA" or "https://microsoft.com")
+                    </small>
                 </div>
                 
                 <div class="form-group">
@@ -351,31 +355,44 @@ WEB_INTERFACE_TEMPLATE = """
         
         function addUrl() {
             const input = document.getElementById('url-input');
-            const url = input.value.trim();
+            const entry = input.value.trim();
             
-            if (!url) {
-                alert('Please enter a URL');
+            if (!entry) {
+                alert('Please enter a company name or URL');
                 return;
             }
             
-            if (!isValidUrl(url)) {
-                alert('Please enter a valid URL (e.g., https://www.example.com)');
+            // Allow company names, not just URLs
+            if (!isValidEntry(entry)) {
+                alert('Please enter a valid company name, "Company, Country", or URL');
                 return;
             }
             
-            if (urls.includes(url)) {
-                alert('This URL has already been added');
+            if (urls.includes(entry)) {
+                alert('This company has already been added');
                 return;
             }
             
             if (urls.length >= 15) {
-                alert('Maximum 15 URLs allowed');
+                alert('Maximum 15 companies allowed');
                 return;
             }
             
-            urls.push(url);
+            urls.push(entry);
             input.value = '';
             updateUrlList();
+        }
+        
+        function isValidEntry(entry) {
+            // Check if it's a URL
+            if (entry.startsWith('http://') || entry.startsWith('https://')) {
+                return isValidUrl(entry);
+            }
+            
+            // Otherwise, it's a company name (with optional country)
+            // Basic validation: at least 2 characters
+            const companyName = entry.split(',')[0].trim();
+            return companyName.length >= 2;
         }
         
         function removeUrl(index) {

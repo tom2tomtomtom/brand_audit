@@ -50,6 +50,93 @@ class StrategicCompetitiveIntelligence:
         self.market_intelligence = {}
         self.comprehensive_analysis = {}
     
+    def search_company_url(self, company_name, country=None):
+        """Search for company URL using AI"""
+        try:
+            search_prompt = f"""
+Find the official website URL for: {company_name}{f' in {country}' if country else ''}
+
+Requirements:
+1. Must be the official corporate website (not Wikipedia, LinkedIn, etc.)
+2. Prefer .com domain if available
+3. If multiple subsidiaries exist, choose the main corporate site
+4. Return ONLY the URL, nothing else
+
+Company: {company_name}
+Country: {country if country else 'Any'}
+"""
+            
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a web research assistant. Return only URLs, no explanations."},
+                    {"role": "user", "content": search_prompt}
+                ],
+                temperature=0.1,
+                max_tokens=100
+            )
+            
+            url = response["choices"][0]["message"]["content"].strip()
+            
+            # Clean and validate URL
+            url = url.replace('"', '').replace("'", '').strip()
+            
+            # Validate URL format
+            if url.startswith('http'):
+                print(f"✅ Found URL for {company_name}: {url}")
+                return url
+            elif url and '.' in url:
+                # Add https:// if missing
+                url = f"https://{url}"
+                print(f"✅ Found URL for {company_name}: {url}")
+                return url
+                
+        except Exception as e:
+            print(f"❌ Could not find URL for {company_name}: {e}")
+            
+        return None
+    
+    def process_company_input(self, companies_input):
+        """Process a list of company names or URLs
+        
+        Args:
+            companies_input: List of strings that can be:
+                - URLs (e.g., "https://example.com")
+                - Company names (e.g., "Microsoft")
+                - Company name with country (e.g., "Microsoft, USA")
+        
+        Returns:
+            List of URLs
+        """
+        processed_urls = []
+        
+        for company in companies_input:
+            company = company.strip()
+            
+            # Check if it's already a URL
+            if company.startswith('http://') or company.startswith('https://'):
+                processed_urls.append(company)
+                print(f"✅ Using provided URL: {company}")
+            else:
+                # Parse company name and country if provided
+                if ',' in company:
+                    parts = company.split(',', 1)
+                    company_name = parts[0].strip()
+                    country = parts[1].strip()
+                else:
+                    company_name = company
+                    country = None
+                
+                # Search for URL
+                print(f"🔍 Searching for {company_name}...")
+                url = self.search_company_url(company_name, country)
+                if url:
+                    processed_urls.append(url)
+                else:
+                    print(f"⚠️  Skipping {company_name} - could not find URL")
+        
+        return processed_urls
+    
     def fetch_page(self, url):
         """Fetch webpage content with error handling"""
         try:
@@ -1564,8 +1651,24 @@ COMPREHENSIVE COMPETITOR DATA FOR ANALYSIS:
             print(f"     ⚠️ Privacy dialog handling failed: {e}")
             pass  # Continue even if dialog handling fails
     
-    def generate_strategic_intelligence_report(self, urls, report_title="Strategic Competitive Intelligence", output_filename=None, progress_callback=None):
-        """Generate comprehensive strategic intelligence report"""
+    def generate_strategic_intelligence_report(self, companies_or_urls, report_title="Strategic Competitive Intelligence", output_filename=None, progress_callback=None):
+        """Generate comprehensive strategic intelligence report
+        
+        Args:
+            companies_or_urls: List of URLs or company names (with optional country)
+                Examples: ["https://example.com", "Microsoft", "Apple, USA"]
+        """
+        
+        # Process input to get URLs
+        if all(isinstance(item, str) and (item.startswith('http') or '.' not in item) for item in companies_or_urls):
+            urls = self.process_company_input(companies_or_urls)
+        else:
+            # Assume they're already URLs
+            urls = companies_or_urls
+        
+        if not urls:
+            print("❌ No valid URLs found to analyze")
+            return None
         
         if not output_filename:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -2687,58 +2790,177 @@ Focus on traits that are clearly supported by their messaging and positioning.
             return ['Professional', 'Innovative', 'Trustworthy', 'Expert']
     
     def _generate_brand_story(self, brand):
-        """Generate AI-powered brand story and narrative"""
+        """Generate sophisticated brand story with external research"""
         try:
-            # Extract content for brand story analysis
-            hero_content = ' '.join(brand.get('comprehensive_content', {}).get('hero_sections', [])[:2])
-            about_content = ' '.join(brand.get('comprehensive_content', {}).get('about_content', [])[:1])
-            value_props = ' '.join(brand.get('comprehensive_content', {}).get('value_propositions', [])[:2])
+            # Extract comprehensive content with more context
+            hero_content = ' '.join(brand.get('comprehensive_content', {}).get('hero_sections', [])[:3])
+            about_content = ' '.join(brand.get('comprehensive_content', {}).get('about_content', [])[:3])
+            value_props = ' '.join(brand.get('comprehensive_content', {}).get('value_propositions', [])[:5])
+            mission = brand.get('comprehensive_content', {}).get('mission_statements', [])
+            vision = brand.get('comprehensive_content', {}).get('vision_statements', [])
             
-            story_content = f"{hero_content} {about_content} {value_props}"[:800]
+            # Extract actual quotes and specific language
+            quotes = self._extract_quotes(hero_content + about_content)
+            specific_terms = self._extract_industry_terms(hero_content + about_content + ' '.join(value_props))
+            
+            # Get external context about the company
+            external_context = self._get_external_company_context(brand['company_name'], brand['url'])
             
             story_prompt = f"""
-Based on the website content below, craft a sophisticated brand story that captures the essence and narrative of {brand['company_name']}.
+Analyze {brand['company_name']} and create a sophisticated, unique brand narrative.
 
-WEBSITE CONTENT:
-{story_content}
+DIRECT QUOTES FROM THEIR WEBSITE:
+{chr(10).join(quotes[:5]) if quotes else 'No direct quotes found'}
 
-Create a premium brand story (2-3 sentences) that:
-1. Captures their unique value proposition and mission
-2. Reflects their professional positioning in the market
-3. Uses sophisticated, consultancy-level language
-4. Focuses on impact and transformation they deliver
+THEIR ACTUAL VALUE PROPOSITIONS:
+{chr(10).join(value_props[:5]) if value_props else 'No specific value props found'}
 
-Write in the style of a premium brand consultancy. Be specific to their actual business, not generic.
+MISSION/VISION STATEMENTS:
+{chr(10).join(mission[:2] + vision[:2]) if mission or vision else 'No formal mission/vision found'}
 
-Return only the brand story text, no additional commentary.
+INDUSTRY-SPECIFIC TERMS THEY USE:
+{', '.join(specific_terms[:10]) if specific_terms else 'Standard industry terminology'}
+
+EXTERNAL RESEARCH & CONTEXT:
+{external_context}
+
+TASK: Create a 2-3 sentence brand story that:
+
+1. MUST be completely unique to {brand['company_name']} - no generic phrases
+2. MUST incorporate their actual language and terminology
+3. MUST reflect their specific market position and differentiation
+4. MUST avoid ALL clichés and generic corporate speak
+5. MUST be grounded in their actual business model and customer value
+
+STRICTLY FORBIDDEN PHRASES (DO NOT USE):
+- "beacon of" (innovation/excellence/anything)
+- "pioneering" or "pioneer"
+- "leading the way"
+- "transforming the industry"
+- "cutting-edge"
+- "state-of-the-art"
+- "world-class"
+- "best-in-class"
+- "revolutionary"
+- "game-changing"
+
+Instead, use:
+- Their specific technology/methodology names
+- Quantifiable customer outcomes they mention
+- Their unique approach or philosophy
+- Their measurable impact
+- Their distinctive market position
+- Specific problems they solve
+
+Write as if you're their CMO explaining what makes them genuinely different.
 """
             
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are a premium brand strategist who crafts sophisticated brand narratives for professional organizations."},
+                    {"role": "system", "content": "You are an expert brand strategist who creates highly specific, differentiated brand narratives. You NEVER use generic corporate language or clichés. Every sentence must be unique to this specific company."},
                     {"role": "user", "content": story_prompt}
                 ],
-                temperature=0.3,
-                max_tokens=200
+                temperature=0.7,  # Higher for more creative, unique output
+                max_tokens=250
             )
             
             story = response["choices"][0]["message"]["content"].strip()
+            
+            # Validate the story doesn't contain forbidden phrases
+            forbidden = ["beacon of", "pioneering", "leading the way", "transforming the industry", "cutting-edge", "state-of-the-art"]
+            if any(phrase in story.lower() for phrase in forbidden):
+                # Regenerate if forbidden phrases detected
+                return self._generate_fallback_brand_story(brand)
+            
             if len(story) > 50:
                 return story
             
         except Exception as e:
             print(f"         ⚠️ Brand story generation failed: {e}")
         
-        # Fallback brand stories based on company type
-        if 'evidence' in brand['company_name'].lower():
-            return "Pioneering evidence-based healthcare solutions that transform clinical decision-making through cutting-edge AI and comprehensive medical intelligence platforms."
-        elif 'elsevier' in brand['company_name'].lower():
-            return "The global leader in information analytics, empowering healthcare professionals and researchers with trusted knowledge and innovative technology solutions."
-        elif 'wolters' in brand['company_name'].lower():
-            return "Delivering expert solutions that combine deep domain knowledge with advanced technology to help professionals achieve better outcomes for their organizations."
+        return self._generate_fallback_brand_story(brand)
+    
+    def _extract_quotes(self, text):
+        """Extract actual quotes and key phrases"""
+        quotes = re.findall(r'"([^"]+)"', text)
+        
+        # Also extract strong statements
+        sentences = text.split('.')
+        strong_statements = []
+        action_verbs = ['deliver', 'enable', 'provide', 'create', 'build', 'develop', 'accelerate', 'optimize', 'streamline', 'integrate']
+        
+        for sentence in sentences:
+            if any(verb in sentence.lower() for verb in action_verbs) and 30 < len(sentence) < 150:
+                strong_statements.append(sentence.strip())
+        
+        return quotes + strong_statements[:3]
+    
+    def _extract_industry_terms(self, text):
+        """Extract industry-specific terminology"""
+        common_words = set(['the', 'and', 'for', 'with', 'that', 'this', 'from', 'your', 'our', 'are', 'can', 'will', 'all', 'more', 'how', 'what', 'when', 'where', 'who', 'has', 'have', 'been', 'being', 'was', 'were'])
+        
+        # Find capitalized terms, acronyms, and technical words
+        words = re.findall(r'\b[A-Z][a-z]+(?:[A-Z][a-z]+)*\b|\b[A-Z]{2,}\b|\b\w+(?:tion|ment|ance|ence|ity|ics|ware|tech|data|cloud|AI|ML|platform|system|solution)\b', text)
+        
+        # Filter and deduplicate
+        industry_terms = []
+        seen = set()
+        for word in words:
+            word_clean = word.strip()
+            if word_clean.lower() not in common_words and word_clean not in seen and len(word_clean) > 3:
+                industry_terms.append(word_clean)
+                seen.add(word_clean)
+        
+        return industry_terms[:15]
+    
+    def _get_external_company_context(self, company_name, url):
+        """Get additional context about the company using AI"""
+        try:
+            research_prompt = f"""
+Provide specific, factual information about {company_name} ({url}):
+
+1. Their actual market position and key differentiators
+2. Notable clients, partnerships, or case studies (if publicly known)
+3. Specific technologies, products, or methodologies they're known for
+4. Recent achievements, funding, or milestones
+5. What specifically sets them apart from competitors
+
+Focus on concrete facts, not generic descriptions. If you're not certain about something, don't include it.
+Provide 3-5 specific facts that would help create a unique brand story.
+Keep under 150 words.
+"""
+            
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a market research analyst providing factual company intelligence. Only provide verifiable, specific information."},
+                    {"role": "user", "content": research_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=200
+            )
+            
+            return response["choices"][0]["message"]["content"].strip()
+            
+        except Exception as e:
+            print(f"External research failed: {e}")
+            return ""
+    
+    def _generate_fallback_brand_story(self, brand):
+        """Generate specific fallback story based on actual scraped content"""
+        products = brand.get('product_portfolio', {}).get('main_products', [])[:2]
+        values = brand.get('comprehensive_content', {}).get('value_propositions', [])[:2]
+        industries = brand.get('product_portfolio', {}).get('industries', [])[:2]
+        
+        if products and values:
+            product_str = ' and '.join(products) if len(products) > 1 else products[0]
+            value_str = values[0][:100].lower() if values else "delivering measurable business value"
+            industry_str = f" for {' and '.join(industries)}" if industries else ""
+            
+            return f"{brand['company_name']} specializes in {product_str}{industry_str}, distinguished by {value_str}. Their approach combines {values[1][:80].lower() if len(values) > 1 else 'deep domain expertise with practical implementation'}."
         else:
-            return "A forward-thinking organization focused on delivering exceptional value through innovative solutions and professional excellence."
+            return f"{brand['company_name']} delivers specialized solutions tailored to their market segment, with a focus on practical outcomes and measurable client success."
     
     def _analyze_typography(self, brand):
         """Analyze typography and font usage from website using enhanced CSS extraction"""
