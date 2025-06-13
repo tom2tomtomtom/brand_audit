@@ -33,20 +33,20 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && google-chrome --version
 
-# Install ChromeDriver - updated URL format
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1) && \
-    CHROMEDRIVER_VERSION=$(curl -sS https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}) && \
-    mkdir -p /opt/chromedriver-$CHROMEDRIVER_VERSION && \
-    curl -sS -o /tmp/chromedriver_linux64.zip https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip && \
-    unzip -qq /tmp/chromedriver_linux64.zip -d /opt/chromedriver-$CHROMEDRIVER_VERSION && \
-    rm /tmp/chromedriver_linux64.zip && \
-    chmod +x /opt/chromedriver-$CHROMEDRIVER_VERSION/chromedriver && \
-    ln -fs /opt/chromedriver-$CHROMEDRIVER_VERSION/chromedriver /usr/local/bin/chromedriver && \
-    chromedriver --version
-
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install ChromeDriver using webdriver-manager (more reliable)
+RUN python -c "
+from webdriver_manager.chrome import ChromeDriverManager
+import shutil
+import os
+driver_path = ChromeDriverManager().install()
+shutil.copy(driver_path, '/usr/local/bin/chromedriver')
+os.chmod('/usr/local/bin/chromedriver', 0o755)
+print(f'ChromeDriver installed to /usr/local/bin/chromedriver from {driver_path}')
+" && chromedriver --version
 
 # Copy application files
 COPY strategic_competitive_intelligence.py .
