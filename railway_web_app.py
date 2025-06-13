@@ -5,7 +5,7 @@ Complete web interface with premium 6-row grid system
 """
 
 import os
-from flask import Flask, request, jsonify, render_template_string, send_file
+from flask import Flask, request, jsonify, render_template_string, redirect, url_for
 from flask_cors import CORS
 from dotenv import load_dotenv
 import json
@@ -268,7 +268,7 @@ WEB_INTERFACE_TEMPLATE = """
             <div class="feature-grid">
                 <div class="feature-card">
                     <h3>🎨 Premium 6-Row Grid</h3>
-                    <p>Logo, Brand Story, Personality, Colors, Typography, Visual Gallery</p>
+                    <p>Logo, Brand Story, Personality, Colors, Typography, Touchpoints</p>
                 </div>
                 <div class="feature-card">
                     <h3>🧠 AI-Powered Analysis</h3>
@@ -524,36 +524,6 @@ def status():
         }
     })
 
-# Error handlers
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({
-        'error': 'Endpoint not found',
-        'available_endpoints': [
-            'GET /',
-            'GET /health', 
-            'POST /api/generate-premium',
-            'GET /api/status'
-        ]
-    }), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
-
 if __name__ == '__main__':
-    # Railway deployment configuration
     port = int(os.environ.get('PORT', 5000))
-    debug_mode = os.environ.get('FLASK_ENV') == 'development'
-    
-    print(f"🚀 Starting Premium Competitive Intelligence on port {port}")
-    print(f"🌍 Environment: {'Development' if debug_mode else 'Production'}")
-    print(f"📡 Health check available at /health")
-    print(f"🌐 Web interface available at /")
-    print(f"🎯 System available: {SYSTEM_AVAILABLE}")
-    
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=debug_mode
-    )
+    app.run(host='0.0.0.0', port=port, debug=False)
