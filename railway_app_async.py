@@ -557,8 +557,8 @@ WEB_INTERFACE_TEMPLATE = """
             progressContainer.style.display = 'block';
             
             try {
-                // Start the job
-                const response = await fetch('/api/start-v2-analysis', {
+                // Start the job - try both endpoints for compatibility
+                const response = await fetch('/api/start-analysis', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -713,6 +713,13 @@ def start_v2_analysis():
         traceback.print_exc()
         return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
+# BACKWARD COMPATIBILITY: Add alias for /api/start-analysis
+@app.route('/api/start-analysis', methods=['POST'])
+def start_analysis_alias():
+    """Backward compatibility - redirects to V2 endpoint"""
+    print("Received request on /api/start-analysis, redirecting to V2 endpoint")
+    return start_v2_analysis()
+
 @app.route('/api/job-status/<job_id>')
 def job_status(job_id):
     """Get job status"""
@@ -766,11 +773,13 @@ def api_status():
         'endpoints': {
             'GET /': 'Web interface',
             'GET /health': 'Health check',
+            'POST /api/start-analysis': 'Start V2 analysis (backward compatibility)',
             'POST /api/start-v2-analysis': 'Start V2 analysis job',
             'GET /api/job-status/<id>': 'Get job status',
             'GET /api/download-v2-report/<id>': 'Download V2 report',
             'GET /api/debug/jobs': 'Debug - list all jobs',
-            'GET /api/test-import': 'Test V2 import'
+            'GET /api/test-import': 'Test V2 import',
+            'GET /api/debug-openai': 'Debug OpenAI installation'
         }
     })
 
@@ -810,6 +819,32 @@ def test_import():
             'traceback': traceback.format_exc(),
             'system_type': 'V2 Competitive Intelligence',
             'openai_key_present': bool(os.environ.get('OPENAI_API_KEY'))
+        })
+
+@app.route('/api/debug-openai')
+def debug_openai():
+    """Debug OpenAI installation"""
+    try:
+        import openai
+        try:
+            from openai import OpenAI
+            client_import = True
+        except ImportError:
+            client_import = False
+        
+        return jsonify({
+            'openai_version': openai.__version__,
+            'import_success': True,
+            'client_import_success': client_import,
+            'api_key_present': bool(os.environ.get('OPENAI_API_KEY')),
+            'api_key_length': len(os.environ.get('OPENAI_API_KEY', ''))
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc(),
+            'import_success': False
         })
 
 if __name__ == '__main__':
