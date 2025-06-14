@@ -1,899 +1,1101 @@
-import requests
-from bs4 import BeautifulSoup
-import openai
-from openai import OpenAI
-import pandas as pd
+#!/usr/bin/env python3
+"""
+Enhanced Brand Profiler V2 - Real Data Only
+Multi-strategy extraction with no fallbacks
+"""
+
 import os
 import json
+import time
 import re
+from typing import Dict, List, Optional, Any, Tuple
+from bs4 import BeautifulSoup
+import requests
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import TimeoutException, WebDriverException
+import openai
+from urllib.parse import urlparse, urljoin
+import hashlib
+from collections import Counter
 from PIL import Image
 import io
-import base64
-from urllib.parse import urljoin, urlparse
-import numpy as np
-from sklearn.cluster import KMeans
 import colorsys
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-import time
-from playwright.sync_api import sync_playwright
-
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class EnhancedBrandProfilerV2:
-    """Real data only brand profiler with multi-strategy extraction"""
-    
-    def __init__(self):
+    def __init__(self, openai_api_key: str):
+        self.client = openai.OpenAI(api_key=openai_api_key)
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
-        self.driver = None
-    
-    def analyze_brand(self, url):
-        """Main entry point - returns real data or None"""
-        print(f"🔍 Analyzing: {url}")
         
-        # Try multiple extraction strategies
-        extraction_result = self.extract_with_fallbacks(url)
-        
-        if not extraction_result or extraction_result.get("status") == "failed":
-            return self.handle_extraction_failure(url, "No content could be extracted")
-        
-        # Process extracted content
-        content = extraction_result.get("content")
-        if not content:
-            return self.handle_extraction_failure(url, "Empty content")
-        
-        # Intelligent content parsing
-        parsed_content = self.intelligent_content_extraction(content)
-        
-        # Extract brand data with validation
-        brand_data = self.extract_with_retry(parsed_content, url)
-        
-        if not brand_data:
-            return self.handle_extraction_failure(url, "Brand data extraction failed")
-        
-        # Validate extraction quality
-        if not self.validate_extraction(brand_data):
-            return self.handle_extraction_failure(url, "Extracted data failed validation")
-        
-        # Extract visual elements
-        visual_data = self.extract_visual_elements(url, content)
-        
-        # Compile final profile
-        brand_profile = {
-            "status": "success",
-            "url": url,
-            "extraction_method": extraction_result.get("method"),
-            "brand_data": brand_data,
-            "visual_data": visual_data,
-            "extraction_quality": self.score_extraction_quality(brand_data),
-            "timestamp": pd.Timestamp.now().isoformat()
+    def profile_brand(self, url: str, max_retries: int = 3) -> Dict[str, Any]:
+        """
+        Profile a brand using multiple extraction strategies
+        Returns only real extracted data, no fallbacks
+        """
+        start_time = time.time()
+        profile_result = {
+            'url': url,
+            'timestamp': time.time(),
+            'extraction_methods_attempted': [],
+            'retry_count': 0
         }
         
-        return brand_profile
-    
-    def handle_extraction_failure(self, url, error_type):
-        """Handle failed extractions without fallback data"""
-        return {
-            "status": "failed",
-            "url": url,
-            "error": error_type,
-            "extracted_data": None,
-            "timestamp": pd.Timestamp.now().isoformat()
-        }
-    
-    def extract_with_fallbacks(self, url):
-        """Try multiple extraction strategies"""
-        strategies = [
-            ("beautifulsoup", self.extract_with_beautifulsoup),
-            ("selenium", self.extract_with_selenium),
-            ("playwright", self.extract_with_playwright),
+        # Progressive extraction strategies
+        extraction_strategies = [
+            ('basic_scraping', self._extract_with_beautifulsoup),
+            ('selenium_extraction', self._extract_with_selenium),
+            ('visual_analysis', self._extract_visual_elements),
+            ('structured_data', self._extract_structured_data),
+            ('api_endpoints', self._extract_from_api_endpoints)
         ]
         
-        for strategy_name, strategy_func in strategies:
-            try:
-                print(f"  → Trying {strategy_name}...")
-                result = strategy_func(url)
-                if result and result.get("content"):
-                    print(f"  ✓ Success with {strategy_name}")
-                    return {
-                        "status": "success",
-                        "method": strategy_name,
-                        "content": result["content"]
-                    }
-            except Exception as e:
-                print(f"  ✗ {strategy_name} failed: {str(e)[:50]}")
-                continue
+        cumulative_data = {}
         
-        return {"status": "failed", "url": url}
+        for retry in range(max_retries):
+            profile_result['retry_count'] = retry
+            
+            for strategy_name, strategy_func in extraction_strategies:
+                if strategy_name not in profile_result['extraction_methods_attempted']:
+                    profile_result['extraction_methods_attempted'].append(strategy_name)
+                
+                try:
+                    print(f"Attempting {strategy_name} for {url}...")
+                    extracted_data = strategy_func(url)
+                    
+                    if extracted_data and self._validate_extraction(extracted_data):
+                        cumulative_data.update(extracted_data)
+                        
+                        # Check if we have sufficient data
+                        if self._has_sufficient_data(cumulative_data):
+                            profile_result.update({
+                                'status': 'success',
+                                'extraction_method': {
+                                    'primary': strategy_name,
+                                    'all_used': profile_result['extraction_methods_attempted']
+                                },
+                                'data': self._enhance_with_ai_analysis(cumulative_data, url),
+                                'extraction_duration': time.time() - start_time,
+                                'extraction_confidence': self._calculate_confidence(cumulative_data)
+                            })
+                            return profile_result
+                            
+                except Exception as e:
+                    print(f"Error with {strategy_name}: {str(e)}")
+                    continue
+            
+            # If we have partial data, try AI enhancement
+            if cumulative_data:
+                enhanced = self._enhance_with_ai_analysis(cumulative_data, url)
+                if self._validate_extraction(enhanced):
+                    profile_result.update({
+                        'status': 'partial_success',
+                        'data': enhanced,
+                        'extraction_duration': time.time() - start_time,
+                        'extraction_confidence': self._calculate_confidence(enhanced)
+                    })
+                    return profile_result
+        
+        # No successful extraction
+        profile_result.update({
+            'status': 'failed',
+            'error': 'Unable to extract sufficient brand data',
+            'partial_data': cumulative_data if cumulative_data else None,
+            'extraction_duration': time.time() - start_time
+        })
+        
+        return profile_result
     
-    def extract_with_beautifulsoup(self, url):
-        """Basic extraction with BeautifulSoup"""
+    def _extract_with_beautifulsoup(self, url: str) -> Optional[Dict[str, Any]]:
+        """Extract data using BeautifulSoup"""
         try:
-            response = self.session.get(url, timeout=15)
+            response = self.session.get(url, timeout=10)
             response.raise_for_status()
-            return {"content": response.text}
-        except Exception as e:
-            raise Exception(f"BeautifulSoup extraction failed: {e}")
-    
-    def extract_with_selenium(self, url):
-        """Selenium extraction for JavaScript-heavy sites"""
-        driver = None
-        try:
-            chrome_options = Options()
-            chrome_options.add_argument('--headless')
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--window-size=1920,1080')
             
-            driver = webdriver.Chrome(options=chrome_options)
-            driver.get(url)
+            soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Wait for dynamic content
-            time.sleep(5)
+            # Intelligent content extraction
+            extracted = {
+                'html_content': self._extract_meaningful_content(soup),
+                'meta_data': self._extract_meta_tags(soup),
+                'headings': self._extract_heading_hierarchy(soup),
+                'navigation': self._extract_navigation_structure(soup),
+                'semantic_sections': self._extract_semantic_html5(soup),
+                'contact_info': self._extract_contact_information(soup),
+                'social_links': self._extract_social_links(soup)
+            }
             
-            # Scroll to load lazy content
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
-            time.sleep(2)
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2)
+            # Extract visual elements
+            visual_data = self._extract_visual_from_html(soup, url)
+            if visual_data:
+                extracted.update(visual_data)
             
-            content = driver.page_source
-            return {"content": content}
+            return extracted
             
         except Exception as e:
-            raise Exception(f"Selenium extraction failed: {e}")
-        finally:
-            if driver:
-                driver.quit()
+            print(f"BeautifulSoup extraction error: {e}")
+            return None
     
-    def extract_with_playwright(self, url):
-        """Playwright extraction for modern web apps"""
-        try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                context = browser.new_context(
-                    viewport={'width': 1920, 'height': 1080},
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                )
-                page = context.new_page()
-                
-                # Navigate and wait for network idle
-                page.goto(url, wait_until='networkidle')
-                
-                # Additional wait for SPA rendering
-                page.wait_for_timeout(3000)
-                
-                content = page.content()
-                browser.close()
-                
-                return {"content": content}
-                
-        except Exception as e:
-            raise Exception(f"Playwright extraction failed: {e}")
-    
-    def intelligent_content_extraction(self, html_content):
-        """Extract only meaningful content, no truncation"""
-        soup = BeautifulSoup(html_content, 'html.parser')
+    def _extract_meaningful_content(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """Extract only meaningful content sections"""
+        content = {}
         
-        # Remove script and style elements
-        for script in soup(["script", "style"]):
-            script.decompose()
+        # Hero/Banner content
+        hero_selectors = ['[class*="hero"]', '[class*="banner"]', '[class*="jumbotron"]', 
+                         'header > div', 'section:first-of-type']
+        for selector in hero_selectors:
+            element = soup.select_one(selector)
+            if element:
+                content['hero_content'] = self._clean_text(element.get_text())
+                break
         
-        content = {
-            "headings": self.extract_all_headings(soup),
-            "nav_structure": self.extract_navigation_tree(soup),
-            "main_content": self.extract_main_content_blocks(soup),
-            "structured_data": self.extract_json_ld(soup),
-            "meta_data": self.extract_all_meta_tags(soup),
-            "semantic_sections": self.extract_semantic_html5(soup),
-            "text_content": self.extract_visible_text(soup)
-        }
+        # Main content areas
+        main_selectors = ['main', '[role="main"]', '#main', '.main-content', 'article']
+        for selector in main_selectors:
+            element = soup.select_one(selector)
+            if element:
+                # Get first few paragraphs
+                paragraphs = element.find_all('p', limit=5)
+                if paragraphs:
+                    content['main_content'] = ' '.join(self._clean_text(p.get_text()) for p in paragraphs)
+                break
+        
+        # About content
+        about_selectors = ['[class*="about"]', '#about', '[id*="about-us"]']
+        for selector in about_selectors:
+            element = soup.select_one(selector)
+            if element:
+                content['about_content'] = self._clean_text(element.get_text())[:500]
+                break
+        
+        # Features/Services
+        feature_selectors = ['[class*="feature"]', '[class*="service"]', '[class*="benefit"]']
+        features = []
+        for selector in feature_selectors:
+            elements = soup.select(selector)[:5]  # Limit to 5
+            for element in elements:
+                text = self._clean_text(element.get_text())
+                if text and len(text) > 20:
+                    features.append(text)
+        
+        if features:
+            content['features'] = features
         
         return content
     
-    def extract_all_headings(self, soup):
-        """Extract all headings with hierarchy"""
-        headings = {}
-        for level in range(1, 7):
-            headings[f'h{level}'] = [h.get_text(strip=True) for h in soup.find_all(f'h{level}') if h.get_text(strip=True)]
-        return headings
-    
-    def extract_navigation_tree(self, soup):
-        """Extract navigation structure"""
-        nav_items = []
-        nav_selectors = ['nav', '[role="navigation"]', '.nav', '.menu', 'header']
-        
-        for selector in nav_selectors:
-            elements = soup.select(selector)
-            for elem in elements:
-                links = elem.find_all('a')
-                for link in links:
-                    text = link.get_text(strip=True)
-                    href = link.get('href', '')
-                    if text and len(text) < 50:  # Avoid long text blocks
-                        nav_items.append({
-                            'text': text,
-                            'href': href
-                        })
-        
-        return nav_items
-    
-    def extract_main_content_blocks(self, soup):
-        """Extract main content areas"""
-        content_blocks = []
-        content_selectors = [
-            'main', 'article', '[role="main"]', '.content', '#content',
-            '.hero', '[class*="hero"]', '.banner'
-        ]
-        
-        for selector in content_selectors:
-            elements = soup.select(selector)
-            for elem in elements:
-                text = elem.get_text(separator=' ', strip=True)
-                if len(text) > 50:  # Meaningful content
-                    content_blocks.append({
-                        'selector': selector,
-                        'text': text[:2000],  # Limit per block
-                        'word_count': len(text.split())
-                    })
-        
-        return content_blocks
-    
-    def extract_json_ld(self, soup):
-        """Extract structured data"""
-        json_ld_scripts = soup.find_all('script', type='application/ld+json')
-        structured_data = []
-        
-        for script in json_ld_scripts:
-            try:
-                data = json.loads(script.string)
-                structured_data.append(data)
-            except:
-                continue
-        
-        return structured_data
-    
-    def extract_all_meta_tags(self, soup):
-        """Extract all meta information"""
+    def _extract_meta_tags(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """Extract all relevant meta tags"""
         meta_data = {}
         
         # Title
-        title_tag = soup.find('title')
-        if title_tag:
-            meta_data['title'] = title_tag.get_text(strip=True)
+        title = soup.find('title')
+        if title:
+            meta_data['title'] = self._clean_text(title.string)
         
         # Meta tags
-        for meta in soup.find_all('meta'):
-            name = meta.get('name') or meta.get('property', '')
-            content = meta.get('content', '')
+        meta_tags = soup.find_all('meta')
+        for tag in meta_tags:
+            name = tag.get('name') or tag.get('property')
+            content = tag.get('content')
+            
             if name and content:
-                meta_data[name] = content
+                # Focus on relevant meta tags
+                relevant_names = ['description', 'keywords', 'author', 'company', 
+                                'og:title', 'og:description', 'og:site_name',
+                                'twitter:title', 'twitter:description']
+                if any(rel in name.lower() for rel in relevant_names):
+                    meta_data[name] = content
         
         return meta_data
     
-    def extract_semantic_html5(self, soup):
-        """Extract semantic HTML5 sections"""
-        semantic_tags = ['header', 'main', 'footer', 'article', 'section', 'aside']
+    def _extract_heading_hierarchy(self, soup: BeautifulSoup) -> Dict[str, List[str]]:
+        """Extract heading hierarchy for structure understanding"""
+        headings = {}
+        
+        for level in range(1, 4):  # h1, h2, h3
+            heading_tags = soup.find_all(f'h{level}')
+            heading_texts = [self._clean_text(h.get_text()) for h in heading_tags 
+                           if self._clean_text(h.get_text())]
+            if heading_texts:
+                headings[f'h{level}'] = heading_texts[:10]  # Limit to 10 per level
+        
+        return headings
+    
+    def _extract_navigation_structure(self, soup: BeautifulSoup) -> List[str]:
+        """Extract navigation menu items"""
+        nav_items = []
+        
+        # Find navigation elements
+        nav_selectors = ['nav', '[role="navigation"]', '.navigation', '#navigation', 
+                        '.navbar', '.menu', '#menu']
+        
+        for selector in nav_selectors:
+            nav = soup.select_one(selector)
+            if nav:
+                # Extract link texts
+                links = nav.find_all('a')
+                for link in links:
+                    text = self._clean_text(link.get_text())
+                    if text and len(text) > 1 and text not in nav_items:
+                        nav_items.append(text)
+                
+                if nav_items:
+                    break
+        
+        return nav_items[:20]  # Limit to 20 items
+    
+    def _extract_semantic_html5(self, soup: BeautifulSoup) -> Dict[str, Any]:
+        """Extract content from semantic HTML5 elements"""
         semantic_content = {}
         
-        for tag in semantic_tags:
-            elements = soup.find_all(tag)
+        # Semantic elements to check
+        semantic_elements = ['article', 'section', 'aside', 'header', 'footer']
+        
+        for element_type in semantic_elements:
+            elements = soup.find_all(element_type)
             if elements:
-                semantic_content[tag] = [elem.get_text(separator=' ', strip=True)[:500] for elem in elements[:3]]
+                # Get the most relevant content from each type
+                content_list = []
+                for element in elements[:3]:  # Limit to 3 per type
+                    # Look for headings and first paragraph
+                    heading = element.find(['h1', 'h2', 'h3', 'h4'])
+                    paragraph = element.find('p')
+                    
+                    if heading or paragraph:
+                        content_item = {}
+                        if heading:
+                            content_item['heading'] = self._clean_text(heading.get_text())
+                        if paragraph:
+                            content_item['content'] = self._clean_text(paragraph.get_text())
+                        content_list.append(content_item)
+                
+                if content_list:
+                    semantic_content[element_type] = content_list
         
         return semantic_content
     
-    def extract_visible_text(self, soup):
-        """Extract all visible text content"""
-        # Get text from body
-        body = soup.find('body')
-        if body:
-            text = body.get_text(separator=' ', strip=True)
-            # Clean up multiple spaces
-            text = ' '.join(text.split())
-            return text
-        return ""
-    
-    def detect_industry_context(self, content):
-        """Dynamically detect industry from content"""
-        all_text = ' '.join([
-            content.get('text_content', ''),
-            ' '.join(content.get('headings', {}).get('h1', [])),
-            ' '.join(content.get('headings', {}).get('h2', []))
-        ])
-        
-        messages = [
-            {"role": "system", "content": "You are an expert at identifying business industries and sectors."},
-            {"role": "user", "content": f"""
-            Based on this website content, identify:
-            1. Primary industry/sector
-            2. Business model type (B2B/B2C/B2B2C)
-            3. Key industry-specific terminology found
-            
-            Content preview: {all_text[:1000]}
-            
-            Return as JSON:
-            {{
-                "industry": "Primary industry",
-                "business_model": "B2B/B2C/B2B2C",
-                "key_terms": ["term1", "term2", "term3"]
-            }}
-            """}
-        ]
-        
-        try:
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0.1,
-                max_tokens=200
-            )
-            
-            content = response.choices[0].message.content.strip()
-            return json.loads(re.sub(r"```(json)?", "", content).strip())
-        except:
-            return None
-    
-    def extract_with_retry(self, content, url, max_attempts=3):
-        """Extract with retry logic using different prompts"""
-        industry_context = self.detect_industry_context(content)
-        
-        prompts = [
-            self.detailed_extraction_prompt,
-            self.simplified_extraction_prompt,
-            self.guided_extraction_prompt
-        ]
-        
-        for i, prompt_func in enumerate(prompts):
-            try:
-                prompt = prompt_func(content, url, industry_context)
-                result = self.call_llm_with_validation(prompt, content)
-                
-                if result and self.validate_extraction(result):
-                    return result
-                    
-            except Exception as e:
-                print(f"  → Attempt {i+1} failed: {str(e)[:50]}")
-                if i == len(prompts) - 1:
-                    return None
-                continue
-        
-        return None
-    
-    def detailed_extraction_prompt(self, content, url, industry_context):
-        """Detailed extraction prompt"""
-        return f"""
-        Analyze this website content and extract brand information.
-        URL: {url}
-        {f"Detected Industry: {industry_context.get('industry')}" if industry_context else ""}
-        
-        Extract the following from the actual content:
-        1. Company name (from title, headers, logo alt text, or about sections)
-        2. Brand positioning (main value proposition from hero section or headlines)
-        3. Key messages (primary benefit statements or value props)
-        4. Target audience (who they serve based on content)
-        5. Brand personality (tone and style of communication)
-        
-        Content to analyze:
-        Title: {content.get('meta_data', {}).get('title', '')}
-        H1 headings: {content.get('headings', {}).get('h1', [])}
-        Main content preview: {content.get('text_content', '')[:1000]}
-        
-        IMPORTANT: Only extract what you can clearly identify from the content. 
-        If you cannot find clear evidence for a field, set it to null.
-        Do not make assumptions or provide generic placeholders.
-        
-        Return as valid JSON with confidence scores for each field.
-        """
-    
-    def simplified_extraction_prompt(self, content, url, industry_context):
-        """Simplified extraction prompt"""
-        return f"""
-        Extract basic brand information from this website:
-        
-        1. What is the company name? (Look in title, headers, about)
-        2. What do they do? (Main headline or value proposition)
-        3. Who do they serve? (Target audience from content)
-        
-        Content:
-        Page title: {content.get('meta_data', {}).get('title', '')}
-        Main headings: {' | '.join(content.get('headings', {}).get('h1', [])[:3])}
-        
-        Only include information explicitly found in the content.
-        Return as JSON with only the fields you can confidently extract.
-        """
-    
-    def guided_extraction_prompt(self, content, url, industry_context):
-        """Step-by-step guided extraction"""
-        return f"""
-        Let's extract brand information step-by-step:
-        
-        Step 1: Find the company name
-        - Check the <title> tag: {content.get('meta_data', {}).get('title', '')}
-        - Check H1 headings: {content.get('headings', {}).get('h1', [])}
-        - Check meta description: {content.get('meta_data', {}).get('description', '')}
-        
-        Step 2: Find the main value proposition
-        - Look for hero section text
-        - Check prominent headlines
-        - First major text block: {content.get('text_content', '')[:300]}
-        
-        Step 3: Identify key messages
-        - Look for benefit statements
-        - Check feature lists
-        - Repeated themes in navigation: {[item['text'] for item in content.get('nav_structure', [])[:10]]}
-        
-        Only extract what is clearly present. Return null for unclear fields.
-        Include confidence scores (0-1) for each extraction.
-        """
-    
-    def call_llm_with_validation(self, prompt, content):
-        """Call LLM with structured output validation"""
-        
-        # Select model based on content complexity
-        model = self.select_model_for_content(content)
-        
-        messages = [
-            {"role": "system", "content": "You are an expert at extracting factual information from websites. Only extract what is clearly present in the content."},
-            {"role": "user", "content": prompt}
-        ]
-        
-        # Use function calling for structured output
-        functions = [{
-            "name": "extract_brand_data",
-            "description": "Extract brand information from website content",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "company_name": {
-                        "type": ["string", "null"],
-                        "description": "Official company name if found"
-                    },
-                    "brand_positioning": {
-                        "type": ["string", "null"],
-                        "description": "Main value proposition or positioning statement"
-                    },
-                    "key_messages": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Primary messages or benefits"
-                    },
-                    "target_audience": {
-                        "type": ["string", "null"],
-                        "description": "Target customer description"
-                    },
-                    "brand_personality": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Brand personality traits"
-                    },
-                    "confidence_scores": {
-                        "type": "object",
-                        "properties": {
-                            "company_name": {"type": "number", "minimum": 0, "maximum": 1},
-                            "positioning": {"type": "number", "minimum": 0, "maximum": 1},
-                            "overall": {"type": "number", "minimum": 0, "maximum": 1}
-                        }
-                    }
-                },
-                "required": ["confidence_scores"]
-            }
-        }]
-        
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                functions=functions,
-                function_call={"name": "extract_brand_data"},
-                temperature=0.1,
-                max_tokens=1500
-            )
-            
-            function_call = response.choices[0].message.function_call
-            if function_call and function_call.name == "extract_brand_data":
-                return json.loads(function_call.arguments)
-            
-        except Exception as e:
-            print(f"  ✗ LLM call failed: {e}")
-            return None
-    
-    def select_model_for_content(self, content):
-        """Choose appropriate model based on content"""
-        text_length = len(content.get('text_content', ''))
-        
-        # Estimate complexity
-        has_structured_data = bool(content.get('structured_data'))
-        nav_items = len(content.get('nav_structure', []))
-        
-        if text_length > 50000 or has_structured_data or nav_items > 20:
-            return "gpt-4"  # Better for complex analysis
-        elif text_length < 5000:
-            return "gpt-4o-mini"  # Sufficient for simple sites
-        else:
-            return "gpt-4o"  # Balanced choice
-    
-    def validate_extraction(self, data):
-        """Validate extraction without providing defaults"""
-        if not data:
-            return False
-        
-        # Check confidence scores
-        confidence = data.get('confidence_scores', {})
-        if confidence.get('overall', 0) < 0.5:
-            return False
-        
-        # Validate required fields
-        if not data.get('company_name') or data['company_name'] == 'Unknown':
-            return False
-        
-        # At least one key field should be present
-        has_content = any([
-            data.get('brand_positioning'),
-            data.get('key_messages'),
-            data.get('target_audience')
-        ])
-        
-        return has_content
-    
-    def validate_with_feedback(self, extraction, original_content):
-        """Validate extraction against original content"""
-        issues = []
-        
-        # Check if company name appears in content
-        if extraction.get('company_name'):
-            name_lower = extraction['company_name'].lower()
-            content_lower = original_content.lower()
-            if name_lower not in content_lower:
-                issues.append("Company name not found in original content")
-        
-        # Check positioning statement
-        if extraction.get('brand_positioning'):
-            # Allow for paraphrasing but check key terms
-            position_words = extraction['brand_positioning'].lower().split()
-            found_words = sum(1 for word in position_words if word in original_content.lower())
-            if found_words < len(position_words) * 0.3:  # Less than 30% match
-                issues.append("Positioning statement has low content match")
-        
-        return {"valid": len(issues) == 0, "issues": issues}
-    
-    def score_extraction_quality(self, extracted_data):
-        """Score extraction quality"""
-        if not extracted_data:
-            return 0
-        
-        quality_score = 0
-        max_score = 0
-        
-        # Company name quality
-        if extracted_data.get('company_name'):
-            name = extracted_data['company_name']
-            if len(name) > 2 and not name.lower() in ['unknown', 'company', 'brand']:
-                quality_score += extracted_data.get('confidence_scores', {}).get('company_name', 0.5)
-            max_score += 1
-        
-        # Positioning quality
-        if extracted_data.get('brand_positioning'):
-            positioning = extracted_data['brand_positioning']
-            if len(positioning) > 20 and len(positioning) < 500:
-                quality_score += extracted_data.get('confidence_scores', {}).get('positioning', 0.5)
-            max_score += 1
-        
-        # Messages quality
-        messages = extracted_data.get('key_messages', [])
-        if messages and len(messages) > 0:
-            valid_messages = [m for m in messages if len(m) > 10]
-            quality_score += min(len(valid_messages) / 3, 1.0)
-        max_score += 1
-        
-        # Target audience quality
-        if extracted_data.get('target_audience'):
-            audience = extracted_data['target_audience']
-            if len(audience) > 15 and not any(generic in audience.lower() for generic in ['everyone', 'all', 'general']):
-                quality_score += 0.8
-            max_score += 1
-        
-        return quality_score / max_score if max_score > 0 else 0
-    
-    def extract_visual_elements(self, url, html_content):
-        """Multi-method visual extraction"""
-        methods = {
-            "css_extraction": lambda: self.extract_from_computed_styles(html_content),
-            "screenshot_analysis": lambda: self.analyze_screenshot_colors(url),
-            "svg_parsing": lambda: self.extract_svg_colors(html_content),
-            "logo_extraction": lambda: self.extract_logos_comprehensive(html_content, url)
-        }
-        
+    def _extract_visual_from_html(self, soup: BeautifulSoup, base_url: str) -> Dict[str, Any]:
+        """Extract visual elements from HTML"""
         visual_data = {}
-        for method_name, method_func in methods.items():
-            try:
-                result = method_func()
-                if result:
-                    visual_data[method_name] = result
-            except Exception as e:
-                print(f"  → {method_name} failed: {str(e)[:50]}")
-                continue
         
-        return visual_data if visual_data else None
+        # Extract logo
+        logo_url = self._find_logo_url(soup, base_url)
+        if logo_url:
+            visual_data['logo_url'] = logo_url
+        
+        # Extract colors from inline styles
+        colors = self._extract_colors_from_styles(soup)
+        if colors:
+            visual_data['colors'] = colors
+        
+        # Extract favicon
+        favicon = self._find_favicon(soup, base_url)
+        if favicon:
+            visual_data['favicon_url'] = favicon
+        
+        return visual_data
     
-    def extract_from_computed_styles(self, html_content):
-        """Extract colors from CSS"""
-        soup = BeautifulSoup(html_content, 'html.parser')
-        colors = set()
-        
-        # Extract from inline styles
-        for element in soup.find_all(style=True):
-            style = element.get('style', '')
-            found_colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)|rgba\([^)]+\)', style)
-            colors.update(found_colors)
-        
-        # Extract from style tags
-        for style_tag in soup.find_all('style'):
-            css_content = style_tag.get_text()
-            found_colors = re.findall(r'#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\)|rgba\([^)]+\)', css_content)
-            colors.update(found_colors)
-        
-        # Process and filter colors
-        processed_colors = self.process_colors(list(colors))
-        return processed_colors if processed_colors else None
-    
-    def analyze_screenshot_colors(self, url):
-        """Analyze colors from screenshot"""
-        driver = None
-        try:
-            chrome_options = Options()
-            chrome_options.add_argument('--headless')
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--window-size=1200,800')
-            
-            driver = webdriver.Chrome(options=chrome_options)
-            driver.get(url)
-            time.sleep(3)
-            
-            screenshot = driver.get_screenshot_as_png()
-            img = Image.open(io.BytesIO(screenshot))
-            
-            # Sample colors from image
-            img_rgb = img.convert('RGB')
-            pixels = []
-            
-            # Sample evenly across image
-            width, height = img_rgb.size
-            sample_points = 100
-            
-            for i in range(sample_points):
-                x = int((i % 10) * width / 10)
-                y = int((i // 10) * height / 10)
-                if x < width and y < height:
-                    pixels.append(img_rgb.getpixel((x, y)))
-            
-            # Cluster colors
-            if len(pixels) > 10:
-                kmeans = KMeans(n_clusters=min(6, len(set(map(tuple, pixels)))), random_state=42)
-                kmeans.fit(pixels)
-                
-                colors = []
-                for center in kmeans.cluster_centers_:
-                    hex_color = '#{:02x}{:02x}{:02x}'.format(int(center[0]), int(center[1]), int(center[2]))
-                    colors.append(hex_color)
-                
-                return colors
-                
-        except Exception as e:
-            raise Exception(f"Screenshot color analysis failed: {e}")
-        finally:
-            if driver:
-                driver.quit()
-        
-        return None
-    
-    def extract_svg_colors(self, html_content):
-        """Extract colors from SVG elements"""
-        soup = BeautifulSoup(html_content, 'html.parser')
-        colors = set()
-        
-        # Find all SVG elements
-        for svg in soup.find_all('svg'):
-            svg_content = str(svg)
-            found_colors = re.findall(r'fill="(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})"', svg_content)
-            colors.update(found_colors)
-            found_colors = re.findall(r'stroke="(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})"', svg_content)
-            colors.update(found_colors)
-        
-        return list(colors) if colors else None
-    
-    def extract_logos_comprehensive(self, html_content, base_url):
-        """Comprehensive logo extraction"""
-        soup = BeautifulSoup(html_content, 'html.parser')
-        logo_candidates = []
-        
-        # Extended selectors
+    def _find_logo_url(self, soup: BeautifulSoup, base_url: str) -> Optional[str]:
+        """Find logo URL using multiple strategies"""
         logo_selectors = [
-            'img[alt*="logo" i]', 'img[src*="logo" i]', 'img[class*="logo" i]',
-            'img[id*="logo" i]', '.logo img', '#logo img', '[class*="brand"] img',
-            'header img', '.header img', 'a[href="/"] img', '.navbar-brand img',
-            'picture source', 'picture img'
+            'img[class*="logo"]',
+            'img[id*="logo"]',
+            'img[alt*="logo" i]',
+            'img[src*="logo" i]',
+            '.logo img',
+            '#logo img',
+            'header img',
+            'a[href="/"] img',
+            'a[href="./"] img'
         ]
         
         for selector in logo_selectors:
-            elements = soup.select(selector)
-            for elem in elements:
-                if elem.name == 'source':
-                    srcset = elem.get('srcset', '')
-                    if srcset:
-                        # Parse srcset
-                        urls = [url.strip().split(' ')[0] for url in srcset.split(',')]
-                        logo_candidates.extend(urls)
-                else:
-                    src = elem.get('src') or elem.get('data-src') or elem.get('data-lazy-src')
-                    if src:
-                        logo_candidates.append(src)
+            logo = soup.select_one(selector)
+            if logo and logo.get('src'):
+                logo_url = urljoin(base_url, logo['src'])
+                # Validate it's an image
+                if any(ext in logo_url.lower() for ext in ['.png', '.jpg', '.jpeg', '.svg', '.webp']):
+                    return logo_url
         
-        # Process and validate logos
-        valid_logos = []
-        for logo_url in logo_candidates:
-            full_url = urljoin(base_url, logo_url)
-            if self.is_likely_logo_url(full_url):
-                valid_logos.append(full_url)
-        
-        return list(set(valid_logos))[:3] if valid_logos else None
+        return None
     
-    def is_likely_logo_url(self, url):
-        """Validate if URL is likely a logo"""
-        url_lower = url.lower()
+    def _extract_colors_from_styles(self, soup: BeautifulSoup) -> List[str]:
+        """Extract colors from inline styles and CSS"""
+        colors = []
+        color_pattern = re.compile(r'#[0-9a-fA-F]{3,6}|rgb\([^)]+\)|rgba\([^)]+\)')
         
-        # Positive indicators
-        logo_indicators = ['logo', 'brand', 'identity', 'mark']
-        if any(indicator in url_lower for indicator in logo_indicators):
-            return True
+        # Check inline styles
+        elements_with_style = soup.find_all(style=True)
+        for element in elements_with_style:
+            style = element.get('style', '')
+            found_colors = color_pattern.findall(style)
+            colors.extend(found_colors)
         
-        # Negative indicators
-        avoid_patterns = ['banner', 'hero', 'background', 'slide', 'feature', 'product', 'team', 'testimonial']
-        if any(pattern in url_lower for pattern in avoid_patterns):
+        # Check style tags
+        style_tags = soup.find_all('style')
+        for style_tag in style_tags:
+            if style_tag.string:
+                found_colors = color_pattern.findall(style_tag.string)
+                colors.extend(found_colors)
+        
+        # Clean and deduplicate
+        unique_colors = []
+        seen = set()
+        
+        for color in colors:
+            # Normalize color format
+            normalized = self._normalize_color(color)
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                unique_colors.append(normalized)
+        
+        return unique_colors[:10]  # Return top 10 unique colors
+    
+    def _normalize_color(self, color: str) -> Optional[str]:
+        """Normalize color to hex format"""
+        color = color.strip()
+        
+        # Already hex
+        if color.startswith('#'):
+            if len(color) == 4:  # Convert #RGB to #RRGGBB
+                return f"#{color[1]*2}{color[2]*2}{color[3]*2}"
+            elif len(color) == 7:
+                return color.upper()
+        
+        # RGB/RGBA
+        elif color.startswith(('rgb(', 'rgba(')):
+            numbers = re.findall(r'\d+', color)
+            if len(numbers) >= 3:
+                r, g, b = int(numbers[0]), int(numbers[1]), int(numbers[2])
+                return f"#{r:02X}{g:02X}{b:02X}"
+        
+        return None
+    
+    def _find_favicon(self, soup: BeautifulSoup, base_url: str) -> Optional[str]:
+        """Find favicon URL"""
+        favicon_selectors = [
+            'link[rel="icon"]',
+            'link[rel="shortcut icon"]',
+            'link[rel="apple-touch-icon"]'
+        ]
+        
+        for selector in favicon_selectors:
+            favicon = soup.select_one(selector)
+            if favicon and favicon.get('href'):
+                return urljoin(base_url, favicon['href'])
+        
+        # Try default location
+        default_favicon = urljoin(base_url, '/favicon.ico')
+        try:
+            response = self.session.head(default_favicon, timeout=5)
+            if response.status_code == 200:
+                return default_favicon
+        except:
+            pass
+        
+        return None
+    
+    def _extract_contact_information(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """Extract contact information"""
+        contact_info = {}
+        
+        # Email patterns
+        email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+        emails = email_pattern.findall(str(soup))
+        if emails:
+            # Filter out common non-contact emails
+            contact_emails = [e for e in emails if not any(x in e.lower() for x in 
+                            ['noreply', 'no-reply', 'donotreply', 'example.com'])]
+            if contact_emails:
+                contact_info['email'] = contact_emails[0]
+        
+        # Phone patterns
+        phone_pattern = re.compile(r'[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,5}[-\s\.]?[0-9]{1,5}')
+        phones = phone_pattern.findall(str(soup))
+        if phones:
+            # Filter out too short numbers
+            valid_phones = [p for p in phones if len(re.sub(r'\D', '', p)) >= 10]
+            if valid_phones:
+                contact_info['phone'] = valid_phones[0]
+        
+        # Address - look for common address containers
+        address_selectors = ['address', '[class*="address"]', '[itemtype*="PostalAddress"]']
+        for selector in address_selectors:
+            address = soup.select_one(selector)
+            if address:
+                contact_info['address'] = self._clean_text(address.get_text())
+                break
+        
+        return contact_info
+    
+    def _extract_social_links(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """Extract social media links"""
+        social_links = {}
+        
+        social_patterns = {
+            'twitter': r'twitter\.com/([^/\s]+)',
+            'facebook': r'facebook\.com/([^/\s]+)',
+            'linkedin': r'linkedin\.com/company/([^/\s]+)',
+            'instagram': r'instagram\.com/([^/\s]+)',
+            'youtube': r'youtube\.com/(@?[^/\s]+)'
+        }
+        
+        all_links = soup.find_all('a', href=True)
+        
+        for link in all_links:
+            href = link.get('href', '')
+            for platform, pattern in social_patterns.items():
+                if platform in href:
+                    match = re.search(pattern, href)
+                    if match:
+                        social_links[platform] = match.group(1)
+        
+        return social_links
+    
+    def _extract_with_selenium(self, url: str) -> Optional[Dict[str, Any]]:
+        """Extract data using Selenium for JavaScript-rendered content"""
+        driver = None
+        try:
+            options = Options()
+            options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--window-size=1920,1080')
+            
+            driver = webdriver.Chrome(options=options)
+            driver.get(url)
+            
+            # Wait for content to load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Additional wait for dynamic content
+            time.sleep(2)
+            
+            # Get page source after JavaScript execution
+            page_source = driver.page_source
+            soup = BeautifulSoup(page_source, 'html.parser')
+            
+            # Extract using BeautifulSoup methods
+            extracted = self._extract_with_beautifulsoup_from_soup(soup, url)
+            
+            # Additional Selenium-specific extractions
+            if extracted:
+                # Get computed styles for colors
+                computed_colors = self._extract_computed_colors(driver)
+                if computed_colors:
+                    extracted['computed_colors'] = computed_colors
+                
+                # Take screenshot for visual analysis
+                screenshot = driver.get_screenshot_as_png()
+                if screenshot:
+                    extracted['screenshot'] = screenshot
+            
+            return extracted
+            
+        except Exception as e:
+            print(f"Selenium extraction error: {e}")
+            return None
+        finally:
+            if driver:
+                driver.quit()
+    
+    def _extract_with_beautifulsoup_from_soup(self, soup: BeautifulSoup, url: str) -> Dict[str, Any]:
+        """Extract data from pre-parsed soup"""
+        extracted = {
+            'html_content': self._extract_meaningful_content(soup),
+            'meta_data': self._extract_meta_tags(soup),
+            'headings': self._extract_heading_hierarchy(soup),
+            'navigation': self._extract_navigation_structure(soup),
+            'semantic_sections': self._extract_semantic_html5(soup),
+            'contact_info': self._extract_contact_information(soup),
+            'social_links': self._extract_social_links(soup)
+        }
+        
+        visual_data = self._extract_visual_from_html(soup, url)
+        if visual_data:
+            extracted.update(visual_data)
+        
+        return extracted
+    
+    def _extract_computed_colors(self, driver) -> List[str]:
+        """Extract computed colors using Selenium"""
+        try:
+            # Get colors from key elements
+            selectors = ['body', 'header', 'nav', '.hero', '.banner', 'footer', 
+                        'h1', 'h2', '.button', '.btn', 'a']
+            
+            colors = set()
+            
+            for selector in selectors:
+                try:
+                    elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements[:3]:  # Limit per selector
+                        # Get background color
+                        bg_color = element.value_of_css_property('background-color')
+                        if bg_color and bg_color != 'rgba(0, 0, 0, 0)':
+                            hex_color = self._rgb_to_hex(bg_color)
+                            if hex_color:
+                                colors.add(hex_color)
+                        
+                        # Get text color
+                        text_color = element.value_of_css_property('color')
+                        if text_color:
+                            hex_color = self._rgb_to_hex(text_color)
+                            if hex_color:
+                                colors.add(hex_color)
+                except:
+                    continue
+            
+            return list(colors)[:10]
+            
+        except Exception as e:
+            print(f"Error extracting computed colors: {e}")
+            return []
+    
+    def _rgb_to_hex(self, rgb_string: str) -> Optional[str]:
+        """Convert RGB string to hex"""
+        try:
+            # Extract numbers from rgb/rgba string
+            numbers = re.findall(r'\d+', rgb_string)
+            if len(numbers) >= 3:
+                r, g, b = int(numbers[0]), int(numbers[1]), int(numbers[2])
+                return f"#{r:02X}{g:02X}{b:02X}"
+        except:
+            pass
+        return None
+    
+    def _extract_visual_elements(self, url: str) -> Optional[Dict[str, Any]]:
+        """Extract visual elements through screenshot analysis"""
+        driver = None
+        try:
+            options = Options()
+            options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--window-size=1920,1080')
+            
+            driver = webdriver.Chrome(options=options)
+            driver.get(url)
+            
+            # Wait for page load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            time.sleep(2)
+            
+            # Take screenshot
+            screenshot = driver.get_screenshot_as_png()
+            
+            # Analyze screenshot for colors
+            visual_data = self._analyze_screenshot(screenshot)
+            
+            return visual_data
+            
+        except Exception as e:
+            print(f"Visual extraction error: {e}")
+            return None
+        finally:
+            if driver:
+                driver.quit()
+    
+    def _analyze_screenshot(self, screenshot_data: bytes) -> Dict[str, Any]:
+        """Analyze screenshot for visual elements"""
+        try:
+            # Open image
+            image = Image.open(io.BytesIO(screenshot_data))
+            
+            # Convert to RGB if necessary
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Get dominant colors
+            colors = self._extract_dominant_colors(image)
+            
+            return {
+                'screenshot_colors': colors,
+                'screenshot_analyzed': True
+            }
+            
+        except Exception as e:
+            print(f"Screenshot analysis error: {e}")
+            return {}
+    
+    def _extract_dominant_colors(self, image: Image.Image, num_colors: int = 5) -> List[str]:
+        """Extract dominant colors from image"""
+        try:
+            # Resize for performance
+            image = image.resize((150, 150))
+            
+            # Get colors
+            pixels = list(image.getdata())
+            
+            # Count colors (simple approach)
+            color_counts = Counter(pixels)
+            
+            # Get most common colors
+            dominant_colors = []
+            
+            for color, count in color_counts.most_common(50):
+                # Convert to hex
+                hex_color = f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"
+                
+                # Skip near white/black/gray
+                r, g, b = color
+                
+                # Check if it's not too close to white
+                if r > 240 and g > 240 and b > 240:
+                    continue
+                
+                # Check if it's not too close to black
+                if r < 15 and g < 15 and b < 15:
+                    continue
+                
+                # Check if it's not too gray (low saturation)
+                h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+                if s < 0.1:  # Low saturation means gray
+                    continue
+                
+                dominant_colors.append(hex_color)
+                
+                if len(dominant_colors) >= num_colors:
+                    break
+            
+            return dominant_colors
+            
+        except Exception as e:
+            print(f"Color extraction error: {e}")
+            return []
+    
+    def _extract_structured_data(self, url: str) -> Optional[Dict[str, Any]]:
+        """Extract structured data (JSON-LD, microdata)"""
+        try:
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            structured_data = {}
+            
+            # Extract JSON-LD
+            json_ld_scripts = soup.find_all('script', type='application/ld+json')
+            if json_ld_scripts:
+                json_ld_data = []
+                for script in json_ld_scripts:
+                    try:
+                        data = json.loads(script.string)
+                        json_ld_data.append(data)
+                    except:
+                        continue
+                
+                if json_ld_data:
+                    structured_data['json_ld'] = json_ld_data
+            
+            # Extract OpenGraph data
+            og_data = {}
+            og_tags = soup.find_all('meta', property=re.compile(r'^og:'))
+            for tag in og_tags:
+                property_name = tag.get('property', '').replace('og:', '')
+                content = tag.get('content')
+                if property_name and content:
+                    og_data[property_name] = content
+            
+            if og_data:
+                structured_data['open_graph'] = og_data
+            
+            # Extract Twitter Card data
+            twitter_data = {}
+            twitter_tags = soup.find_all('meta', attrs={'name': re.compile(r'^twitter:')})
+            for tag in twitter_tags:
+                name = tag.get('name', '').replace('twitter:', '')
+                content = tag.get('content')
+                if name and content:
+                    twitter_data[name] = content
+            
+            if twitter_data:
+                structured_data['twitter_card'] = twitter_data
+            
+            return structured_data if structured_data else None
+            
+        except Exception as e:
+            print(f"Structured data extraction error: {e}")
+            return None
+    
+    def _extract_from_api_endpoints(self, url: str) -> Optional[Dict[str, Any]]:
+        """Try to extract data from common API endpoints"""
+        try:
+            parsed_url = urlparse(url)
+            base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            
+            # Common API endpoints to try
+            api_endpoints = [
+                '/api/config',
+                '/api/site-info',
+                '/api/about',
+                '/.well-known/site-info',
+                '/site.webmanifest',
+                '/manifest.json'
+            ]
+            
+            api_data = {}
+            
+            for endpoint in api_endpoints:
+                try:
+                    api_url = urljoin(base_url, endpoint)
+                    response = self.session.get(api_url, timeout=5)
+                    
+                    if response.status_code == 200:
+                        content_type = response.headers.get('content-type', '')
+                        
+                        if 'json' in content_type:
+                            data = response.json()
+                            api_data[endpoint] = data
+                        elif endpoint.endswith('.json'):
+                            try:
+                                data = response.json()
+                                api_data[endpoint] = data
+                            except:
+                                pass
+                except:
+                    continue
+            
+            return api_data if api_data else None
+            
+        except Exception as e:
+            print(f"API endpoint extraction error: {e}")
+            return None
+    
+    def _enhance_with_ai_analysis(self, raw_data: Dict[str, Any], url: str) -> Dict[str, Any]:
+        """Enhance extracted data with AI analysis"""
+        try:
+            # Prepare content for AI analysis
+            content_summary = self._prepare_content_for_ai(raw_data)
+            
+            if not content_summary:
+                return raw_data
+            
+            # Detect industry first
+            industry = self._detect_industry(content_summary)
+            
+            # Generate adaptive prompts based on content
+            prompts = self._generate_adaptive_prompts(content_summary, industry)
+            
+            # Extract brand information with multiple attempts
+            brand_info = None
+            for prompt_type, prompt in prompts.items():
+                brand_info = self._extract_brand_info_with_ai(content_summary, prompt)
+                if brand_info and self._validate_ai_extraction(brand_info):
+                    break
+            
+            if not brand_info:
+                return raw_data
+            
+            # Merge AI insights with raw data
+            enhanced_data = raw_data.copy()
+            enhanced_data.update(brand_info)
+            
+            # Add extraction metadata
+            enhanced_data['ai_enhanced'] = True
+            enhanced_data['industry_detected'] = industry
+            enhanced_data['url'] = url
+            
+            return enhanced_data
+            
+        except Exception as e:
+            print(f"AI enhancement error: {e}")
+            return raw_data
+    
+    def _prepare_content_for_ai(self, raw_data: Dict[str, Any]) -> str:
+        """Prepare extracted content for AI analysis"""
+        content_parts = []
+        
+        # Add meta data
+        if raw_data.get('meta_data'):
+            meta = raw_data['meta_data']
+            if meta.get('title'):
+                content_parts.append(f"Title: {meta['title']}")
+            if meta.get('description'):
+                content_parts.append(f"Description: {meta['description']}")
+        
+        # Add headings
+        if raw_data.get('headings'):
+            for level, headings in raw_data['headings'].items():
+                content_parts.append(f"{level.upper()}: {', '.join(headings[:5])}")
+        
+        # Add main content
+        if raw_data.get('html_content'):
+            content = raw_data['html_content']
+            if content.get('hero_content'):
+                content_parts.append(f"Hero: {content['hero_content'][:500]}")
+            if content.get('main_content'):
+                content_parts.append(f"Main: {content['main_content'][:500]}")
+            if content.get('about_content'):
+                content_parts.append(f"About: {content['about_content'][:500]}")
+        
+        # Add navigation
+        if raw_data.get('navigation'):
+            content_parts.append(f"Navigation: {', '.join(raw_data['navigation'][:10])}")
+        
+        # Add structured data insights
+        if raw_data.get('json_ld'):
+            content_parts.append("Structured data found")
+        
+        return '\n\n'.join(content_parts)
+    
+    def _detect_industry(self, content: str) -> str:
+        """Detect industry from content"""
+        try:
+            prompt = """
+            Based on this website content, identify the primary industry/sector.
+            Be specific but concise (e.g., "SaaS project management", "E-commerce fashion", 
+            "Healthcare technology", "Financial services").
+            
+            Content:
+            {content}
+            
+            Industry:
+            """
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are an expert at identifying business industries."},
+                    {"role": "user", "content": prompt.format(content=content[:2000])}
+                ],
+                temperature=0.3,
+                max_tokens=50
+            )
+            
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            print(f"Industry detection error: {e}")
+            return "Unknown"
+    
+    def _generate_adaptive_prompts(self, content: str, industry: str) -> Dict[str, str]:
+        """Generate adaptive prompts based on content and industry"""
+        prompts = {}
+        
+        # Detailed extraction prompt
+        prompts['detailed'] = f"""
+        Analyze this {industry} company's website content and extract:
+        
+        1. Company name (from title, headers, or about section)
+        2. Brand positioning statement (main value proposition from hero/homepage)
+        3. Key messages (3-5 main points they emphasize)
+        4. Target audience (who they're speaking to)
+        5. Unique differentiation factors
+        
+        Content:
+        {content}
+        
+        Extract only what you can clearly identify from the content. 
+        Return null for any fields you cannot determine with confidence.
+        
+        Return as JSON:
+        {{
+            "company_name": "...",
+            "positioning": "...",
+            "value_proposition": "...",
+            "messages": ["...", "..."],
+            "target_audience": ["...", "..."],
+            "personality_traits": ["...", "..."],
+            "differentiation_factors": ["...", "..."]
+        }}
+        """
+        
+        # Simplified prompt for fallback
+        prompts['simplified'] = """
+        From this website content, extract:
+        1. Company name
+        2. What they do (one sentence)
+        3. Who they serve
+        
+        Content:
+        {content}
+        
+        Return only clearly identifiable information as JSON:
+        {{
+            "company_name": "...",
+            "positioning": "...",
+            "target_audience": ["..."]
+        }}
+        """
+        
+        # Guided extraction with examples
+        prompts['guided'] = f"""
+        Step-by-step analysis of this {industry} website:
+        
+        Step 1: Find the company name
+        - Check: title tags, logo alt text, headers, about sections
+        
+        Step 2: Identify main value proposition
+        - Check: hero headlines, taglines, first prominent text
+        
+        Step 3: Extract key messages
+        - Check: subheadings, repeated themes, benefit statements
+        
+        Content:
+        {content}
+        
+        Only include findings you're confident about. Return as JSON.
+        """
+        
+        return prompts
+    
+    def _extract_brand_info_with_ai(self, content: str, prompt_template: str) -> Optional[Dict[str, Any]]:
+        """Extract brand information using AI"""
+        try:
+            # Format prompt with content
+            prompt = prompt_template.format(content=content[:3000])  # Limit content length
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a brand analysis expert. Extract only real, identifiable information. Never make up or infer information that isn't clearly present."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=1000,
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            
+            # Clean up the result
+            cleaned_result = {}
+            for key, value in result.items():
+                if value and value != "null" and value != "Unknown":
+                    if isinstance(value, list):
+                        # Filter out empty or placeholder values from lists
+                        cleaned_list = [v for v in value if v and v != "Unknown"]
+                        if cleaned_list:
+                            cleaned_result[key] = cleaned_list
+                    else:
+                        cleaned_result[key] = value
+            
+            return cleaned_result if cleaned_result else None
+            
+        except Exception as e:
+            print(f"AI extraction error: {e}")
+            return None
+    
+    def _validate_extraction(self, data: Dict[str, Any]) -> bool:
+        """Validate extracted data has minimum required information"""
+        if not data:
             return False
         
-        # Check file extension
-        image_extensions = ['.png', '.jpg', '.jpeg', '.svg', '.webp']
-        if any(url_lower.endswith(ext) for ext in image_extensions):
-            # Additional check for header/nav images
-            if any(loc in url_lower for loc in ['header', 'nav', 'top']):
-                return True
+        # Minimum required fields
+        required_fields = ['company_name', 'positioning']
         
-        return False
-    
-    def process_colors(self, color_list):
-        """Process and cluster colors"""
-        if not color_list:
-            return None
-        
-        processed_colors = []
-        
-        for color in color_list:
-            try:
-                rgb = None
-                
-                if color.startswith('#'):
-                    # Hex color
-                    if len(color) == 4:  # #abc format
-                        color = '#' + ''.join([c*2 for c in color[1:]])
-                    rgb = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
-                    
-                elif color.startswith('rgb'):
-                    # RGB/RGBA color
-                    numbers = re.findall(r'\d+', color)
-                    if len(numbers) >= 3:
-                        rgb = tuple(int(n) for n in numbers[:3])
-                
-                if rgb and all(0 <= val <= 255 for val in rgb):
-                    # Filter out very light/dark colors
-                    if not (all(val > 240 for val in rgb) or all(val < 20 for val in rgb)):
-                        # Filter out grays
-                        if max(rgb) - min(rgb) > 20:
-                            processed_colors.append(rgb)
-                            
-            except:
-                continue
-        
-        if not processed_colors:
-            return None
-        
-        # Cluster similar colors
-        try:
-            unique_colors = list(set(map(tuple, processed_colors)))
-            if len(unique_colors) > 6:
-                colors_array = np.array(unique_colors)
-                kmeans = KMeans(n_clusters=6, random_state=42, n_init=10)
-                kmeans.fit(colors_array)
-                
-                hex_colors = []
-                for center in kmeans.cluster_centers_:
-                    hex_color = '#{:02x}{:02x}{:02x}'.format(
-                        int(center[0]), int(center[1]), int(center[2])
-                    )
-                    hex_colors.append(hex_color)
-                
-                return hex_colors
-            else:
-                # Convert to hex
-                hex_colors = []
-                for rgb in unique_colors:
-                    hex_color = '#{:02x}{:02x}{:02x}'.format(rgb[0], rgb[1], rgb[2])
-                    hex_colors.append(hex_color)
-                
-                return hex_colors
-                
-        except:
-            return None
-
-def analyze_brands_real_data_only(urls):
-    """Analyze multiple brands with real data only"""
-    profiler = EnhancedBrandProfilerV2()
-    results = []
-    
-    for url in urls:
-        try:
-            print(f"\n{'='*60}")
-            print(f"Analyzing: {url}")
-            print(f"{'='*60}")
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return False
             
-            profile = profiler.analyze_brand(url)
-            results.append(profile)
+            # Check for placeholder values
+            value = data[field]
+            if isinstance(value, str):
+                if value.lower() in ['unknown', 'n/a', 'not found', '']:
+                    return False
+        
+        return True
+    
+    def _validate_ai_extraction(self, data: Dict[str, Any]) -> bool:
+        """Validate AI-extracted data"""
+        if not data:
+            return False
+        
+        # Check for minimum content
+        if len(data) < 2:  # At least 2 fields
+            return False
+        
+        # Check for actual content vs placeholders
+        total_fields = 0
+        valid_fields = 0
+        
+        for key, value in data.items():
+            total_fields += 1
             
-            if profile['status'] == 'success':
-                print(f"✅ Success: {profile['brand_data'].get('company_name', 'Unknown')}")
-                print(f"   Quality Score: {profile['extraction_quality']:.2f}")
-            else:
-                print(f"❌ Failed: {profile['error']}")
-                
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            results.append({
-                "status": "failed",
-                "url": url,
-                "error": str(e),
-                "extracted_data": None
-            })
+            if isinstance(value, str):
+                if len(value) > 10 and value.lower() not in ['unknown', 'n/a', 'not found']:
+                    valid_fields += 1
+            elif isinstance(value, list):
+                if value and any(len(str(v)) > 5 for v in value):
+                    valid_fields += 1
+        
+        # Require at least 50% valid fields
+        return valid_fields / total_fields >= 0.5 if total_fields > 0 else False
     
-    # Summary
-    successful = [r for r in results if r['status'] == 'success']
-    failed = [r for r in results if r['status'] == 'failed']
+    def _has_sufficient_data(self, data: Dict[str, Any]) -> bool:
+        """Check if we have sufficient data to stop extraction"""
+        # Define what constitutes sufficient data
+        required_elements = {
+            'company_name': lambda x: x and len(x) > 0,
+            'positioning': lambda x: x and len(x) > 20,
+            'messages': lambda x: x and len(x) >= 2,
+            'colors': lambda x: x and len(x) >= 2
+        }
+        
+        score = 0
+        for field, validator in required_elements.items():
+            if field in data and validator(data[field]):
+                score += 1
+        
+        # Require at least 75% of elements
+        return score >= len(required_elements) * 0.75
     
-    print(f"\n{'='*60}")
-    print(f"ANALYSIS COMPLETE")
-    print(f"{'='*60}")
-    print(f"✅ Successful: {len(successful)}")
-    print(f"❌ Failed: {len(failed)}")
+    def _calculate_confidence(self, data: Dict[str, Any]) -> float:
+        """Calculate confidence score for extracted data"""
+        scores = []
+        
+        # Company name confidence
+        if data.get('company_name'):
+            name = data['company_name']
+            score = 1.0 if len(name) > 3 else 0.5
+            # Check if it appears in multiple places
+            if data.get('meta_data', {}).get('title', '').lower().find(name.lower()) >= 0:
+                score = 1.0
+            scores.append(score)
+        
+        # Positioning confidence
+        if data.get('positioning'):
+            positioning = data['positioning']
+            score = min(len(positioning) / 100, 1.0)  # Longer = more confident
+            scores.append(score)
+        
+        # Messages confidence
+        if data.get('messages'):
+            messages = data['messages']
+            score = min(len(messages) / 5, 1.0)  # More messages = more confident
+            scores.append(score)
+        
+        # Visual elements confidence
+        if data.get('colors') or data.get('logo_url'):
+            scores.append(0.9)
+        
+        # AI enhancement confidence
+        if data.get('ai_enhanced'):
+            scores.append(0.8)
+        
+        return sum(scores) / len(scores) if scores else 0.0
     
-    if successful:
-        print(f"\nSuccessfully analyzed:")
-        for r in successful:
-            print(f"  • {r['brand_data']['company_name']} - Quality: {r['extraction_quality']:.2f}")
-    
-    if failed:
-        print(f"\nFailed to analyze:")
-        for r in failed:
-            print(f"  • {r['url']} - {r['error']}")
-    
-    return results
-
-if __name__ == "__main__":
-    # Test with real URLs
-    test_urls = [
-        "https://www.apple.com",
-        "https://www.microsoft.com",
-        "https://www.google.com"
-    ]
-    
-    results = analyze_brands_real_data_only(test_urls)
-    
-    # Save results
-    timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-    with open(f'real_brand_analysis_{timestamp}.json', 'w') as f:
-        json.dump(results, f, indent=2)
-    
-    print(f"\nResults saved to: real_brand_analysis_{timestamp}.json")
+    def _clean_text(self, text: str) -> str:
+        """Clean and normalize text"""
+        if not text:
+            return ""
+        
+        # Remove excess whitespace
+        text = ' '.join(text.split())
+        
+        # Remove special characters but keep basic punctuation
+        text = re.sub(r'[^\w\s\-.,!?;:\'"]', ' ', text)
+        
+        # Remove multiple spaces
+        text = re.sub(r'\s+', ' ', text)
+        
+        return text.strip()
