@@ -16,25 +16,260 @@ from datetime import datetime
 import threading
 from collections import defaultdict
 
+def process_companies_ai_first(analyzer, companies_or_urls, output_filename, progress_callback):
+    """Process companies using AI-first approach and generate HTML report"""
+    
+    # Analyze each company using AI-first approach
+    company_profiles = []
+    total_companies = len(companies_or_urls)
+    
+    for i, company_input in enumerate(companies_or_urls):
+        if progress_callback:
+            progress_callback(f"🧠 AI Research: {company_input} ({i+1}/{total_companies})")
+        
+        try:
+            profile = analyzer.analyze_company(company_input, progress_callback)
+            company_profiles.append(profile)
+            
+            if progress_callback:
+                progress_callback(f"✅ Completed: {profile.get('company_name', company_input)}")
+                
+        except Exception as e:
+            if progress_callback:
+                progress_callback(f"❌ Failed: {company_input} - {str(e)}")
+            
+            # Add minimal profile for failed analysis
+            company_profiles.append({
+                'company_name': company_input,
+                'error': str(e),
+                'company_overview': {'description': 'Analysis failed'},
+                'analysis_metadata': {'confidence_level': 'Failed'}
+            })
+    
+    # Generate comprehensive HTML report
+    if progress_callback:
+        progress_callback("📊 Generating comprehensive intelligence report...")
+    
+    report_html = generate_ai_first_html_report(company_profiles)
+    
+    # Save to file
+    try:
+        with open(output_filename, 'w', encoding='utf-8') as f:
+            f.write(report_html)
+        
+        if progress_callback:
+            progress_callback(f"💾 Report saved: {output_filename}")
+        
+        return output_filename
+        
+    except Exception as e:
+        if progress_callback:
+            progress_callback(f"❌ Save failed: {str(e)}")
+        return None
+
+def generate_ai_first_html_report(company_profiles):
+    """Generate HTML report from AI-first company profiles"""
+    
+    # Filter successful analyses
+    successful_profiles = [p for p in company_profiles if p.get('analysis_metadata', {}).get('confidence_level') != 'Failed']
+    failed_profiles = [p for p in company_profiles if p.get('analysis_metadata', {}).get('confidence_level') == 'Failed']
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Brandintell - AI-First Competitive Intelligence Report</title>
+        <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #333; background: #f8f9fa; }}
+            .container {{ max-width: 1400px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 12px; margin-bottom: 30px; text-align: center; }}
+            .header h1 {{ font-size: 2.5em; margin-bottom: 10px; }}
+            .header p {{ font-size: 1.2em; opacity: 0.9; }}
+            .summary {{ background: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }}
+            .company-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; margin-bottom: 30px; }}
+            .company-card {{ background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }}
+            .company-header {{ display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #eee; }}
+            .company-name {{ font-size: 1.8em; font-weight: 700; color: #2c3e50; margin-right: 15px; }}
+            .confidence-badge {{ padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }}
+            .confidence-high {{ background: #d4edda; color: #155724; }}
+            .confidence-low {{ background: #f8d7da; color: #721c24; }}
+            .section {{ margin-bottom: 25px; }}
+            .section h3 {{ color: #495057; margin-bottom: 15px; font-size: 1.2em; }}
+            .section-content {{ background: #f8f9fa; padding: 15px; border-radius: 8px; }}
+            .brand-story {{ background: linear-gradient(135deg, #667eea20, #764ba220); padding: 20px; border-radius: 8px; font-style: italic; margin-bottom: 20px; }}
+            .two-column {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
+            .list-item {{ padding: 8px 0; border-bottom: 1px solid #eee; }}
+            .list-item:last-child {{ border-bottom: none; }}
+            .screenshots {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }}
+            .screenshot {{ border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+            .screenshot img {{ width: 100%; height: auto; display: block; }}
+            .color-palette {{ display: flex; gap: 10px; margin-top: 10px; }}
+            .color-swatch {{ width: 40px; height: 40px; border-radius: 8px; border: 2px solid #ddd; }}
+            .failed-section {{ background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin-bottom: 20px; }}
+            .metadata {{ font-size: 0.9em; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Brandintell</h1>
+                <p>AI-First Competitive Intelligence Report</p>
+                <p>Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
+            </div>
+            
+            <div class="summary">
+                <h2>Executive Summary</h2>
+                <div class="two-column">
+                    <div>
+                        <h3>Analysis Overview</h3>
+                        <p><strong>Companies Analyzed:</strong> {len(company_profiles)}</p>
+                        <p><strong>Successful Analyses:</strong> {len(successful_profiles)}</p>
+                        <p><strong>Analysis Method:</strong> AI-First Intelligence Gathering</p>
+                        <p><strong>Primary Data Source:</strong> OpenAI GPT-4 Research</p>
+                    </div>
+                    <div>
+                        <h3>Key Insights</h3>
+                        <p>This report leverages advanced AI research to provide comprehensive competitive intelligence with visual enhancement. Each company profile includes strategic positioning, market analysis, and brand differentiation insights.</p>
+                    </div>
+                </div>
+            </div>
+    """
+    
+    # Add failed analyses section if any
+    if failed_profiles:
+        html_content += f"""
+            <div class="failed-section">
+                <h3>Analysis Limitations</h3>
+                <p>The following companies could not be fully analyzed:</p>
+                <ul>
+                    {''.join([f"<li>{p['company_name']}: {p.get('error', 'Unknown error')}</li>" for p in failed_profiles])}
+                </ul>
+            </div>
+        """
+    
+    # Add company profiles
+    html_content += '<div class="company-grid">'
+    
+    for profile in successful_profiles:
+        company_name = profile.get('company_name', 'Unknown Company')
+        confidence = profile.get('analysis_metadata', {}).get('confidence_level', 'Unknown')
+        
+        # Company overview
+        overview = profile.get('company_overview', {})
+        products = profile.get('products_services', {})
+        market_pos = profile.get('market_position', {})
+        competitive = profile.get('competitive_landscape', {})
+        strategic = profile.get('strategic_intelligence', {})
+        brand_pos = profile.get('brand_positioning', {})
+        visual = profile.get('visual_identity', {})
+        
+        html_content += f"""
+            <div class="company-card">
+                <div class="company-header">
+                    <div class="company-name">{company_name}</div>
+                    <div class="confidence-badge confidence-{confidence.lower()}">{confidence} Confidence</div>
+                </div>
+                
+                <div class="brand-story">
+                    "{profile.get('brand_story', 'Brand story not available')}"
+                </div>
+                
+                <div class="section">
+                    <h3>Company Overview</h3>
+                    <div class="section-content">
+                        <p><strong>Industry:</strong> {overview.get('industry', 'Not specified')}</p>
+                        <p><strong>Business Model:</strong> {overview.get('business_model', 'Not specified')}</p>
+                        <p><strong>Target Market:</strong> {overview.get('target_market', 'Not specified')}</p>
+                        <p><strong>Founded:</strong> {overview.get('founded', 'Not specified')}</p>
+                        <p><strong>Headquarters:</strong> {overview.get('headquarters', 'Not specified')}</p>
+                        <p><strong>Description:</strong> {overview.get('description', 'Not available')}</p>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h3>Products & Services</h3>
+                    <div class="section-content">
+                        {''.join([f'<div class="list-item">{product}</div>' for product in products.get('main_products', [])[:5]])}
+                        {f'<p><strong>Categories:</strong> {", ".join(products.get("product_categories", [])[:3])}</p>' if products.get('product_categories') else ''}
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h3>Market Position</h3>
+                    <div class="section-content">
+                        <p><strong>Market Leadership:</strong> {market_pos.get('market_leadership', 'Not specified')}</p>
+                        <div><strong>Key Differentiators:</strong></div>
+                        {''.join([f'<div class="list-item">• {diff}</div>' for diff in market_pos.get('key_differentiators', [])[:3]])}
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h3>Competitive Intelligence</h3>
+                    <div class="section-content">
+                        <div><strong>Main Competitors:</strong></div>
+                        {''.join([f'<div class="list-item">{comp}</div>' for comp in competitive.get('main_competitors', [])[:4]])}
+                        <div style="margin-top: 15px;"><strong>Recent Developments:</strong></div>
+                        {''.join([f'<div class="list-item">• {dev}</div>' for dev in strategic.get('recent_developments', [])[:3]])}
+                    </div>
+                </div>
+        """
+        
+        # Visual identity if available
+        if visual:
+            html_content += f"""
+                <div class="section">
+                    <h3>Visual Identity</h3>
+                    <div class="section-content">
+                        <div><strong>Primary Font:</strong> {visual.get('fonts', {}).get('primary_font', 'Not detected')}</div>
+                        <div><strong>Brand Colors:</strong></div>
+                        <div class="color-palette">
+                            {''.join([f'<div class="color-swatch" style="background-color: {color};" title="{color}"></div>' for color in visual.get('colors', [])[:6]])}
+                        </div>
+                        {'<div class="screenshots">' + ''.join([f'<div class="screenshot"><img src="{img}" alt="Website screenshot" /></div>' for img in visual.get('screenshots', [])[:2]]) + '</div>' if visual.get('screenshots') else ''}
+                    </div>
+                </div>
+            """
+        
+        html_content += f"""
+                <div class="metadata">
+                    <p><strong>Analysis Method:</strong> {profile.get('analysis_metadata', {}).get('extraction_method', 'Unknown')}</p>
+                    <p><strong>Data Sources:</strong> {', '.join(profile.get('analysis_metadata', {}).get('data_sources', []))}</p>
+                    <p><strong>Official URL:</strong> <a href="{profile.get('official_url', '#')}" target="_blank">{profile.get('official_url', 'Not found')}</a></p>
+                </div>
+            </div>
+        """
+    
+    html_content += """
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html_content
+
 # Ensure the current directory is in the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import our premium competitive intelligence system
+# Import our AI-first competitive intelligence system
 IMPORT_ERROR = None
 SYSTEM_AVAILABLE = False
-StrategicCompetitiveIntelligence = None
+AIFirstCompetitiveIntelligence = None
 
-# Try to load the system at startup
+# Try to load the AI-first system at startup
 try:
-    from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+    from ai_first_intelligence import AIFirstCompetitiveIntelligence
     SYSTEM_AVAILABLE = True
-    print("Strategic competitive intelligence system loaded successfully")
+    print("AI-first competitive intelligence system loaded successfully")
 except ImportError as e:
-    print(f"Strategic system not available - ImportError: {e}")
+    print(f"AI-first system not available - ImportError: {e}")
     IMPORT_ERROR = f"ImportError: {str(e)}"
     SYSTEM_AVAILABLE = False
 except Exception as e:
-    print(f"Error loading strategic system - {type(e).__name__}: {e}")
+    print(f"Error loading AI-first system - {type(e).__name__}: {e}")
     import traceback
     IMPORT_ERROR = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
     SYSTEM_AVAILABLE = False
@@ -66,14 +301,14 @@ def run_analysis_job(job_id, companies_or_urls):
     
     try:
         # Import inside the thread to avoid import issues
-        print(f"Job {job_id}: Importing strategic intelligence system...")
+        print(f"Job {job_id}: Importing AI-first intelligence system...")
         try:
-            from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
-            generator = StrategicCompetitiveIntelligence()
-            print(f"Job {job_id}: System imported successfully")
+            from ai_first_intelligence import AIFirstCompetitiveIntelligence
+            analyzer = AIFirstCompetitiveIntelligence()
+            print(f"Job {job_id}: AI-first system imported successfully")
         except Exception as e:
-            print(f"Job {job_id}: Failed to import system: {e}")
-            raise Exception(f"Failed to import analysis system: {e}")
+            print(f"Job {job_id}: Failed to import AI-first system: {e}")
+            raise Exception(f"Failed to import AI-first analysis system: {e}")
         
         def progress_callback(message):
             with job_lock:
@@ -87,19 +322,19 @@ def run_analysis_job(job_id, companies_or_urls):
         temp_dir = tempfile.gettempdir()
         output_filename = os.path.join(temp_dir, f"brandintell_{job_id}.html")
         
-        print(f"Job {job_id}: Starting report generation")
+        print(f"Job {job_id}: Starting AI-first analysis")
         print(f"Job {job_id}: Output will be saved to: {output_filename}")
         print(f"Job {job_id}: Processing {len(companies_or_urls)} companies: {companies_or_urls}")
         
         # Update progress
         with job_lock:
-            jobs[job_id]['message'] = f'Processing {len(companies_or_urls)} companies...'
+            jobs[job_id]['message'] = f'AI research phase: {len(companies_or_urls)} companies...'
             jobs[job_id]['companies'] = companies_or_urls
         
-        # Pass companies_or_urls directly - the method will handle conversion
-        output_file = generator.generate_strategic_intelligence_report(
+        # Process companies using AI-first approach
+        output_file = process_companies_ai_first(
+            analyzer=analyzer,
             companies_or_urls=companies_or_urls,
-            report_title="Brandintell Comprehensive Intelligence Analysis",
             output_filename=output_filename,
             progress_callback=progress_callback
         )
@@ -710,12 +945,13 @@ def debug_jobs():
 
 @app.route('/api/test-import')
 def test_import():
-    """Test if the system can be imported"""
+    """Test if the AI-first system can be imported"""
     try:
-        from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+        from ai_first_intelligence import AIFirstCompetitiveIntelligence
         return jsonify({
             'status': 'success',
-            'message': 'System can be imported successfully',
+            'message': 'AI-first system can be imported successfully',
+            'system_type': 'AI-First Intelligence',
             'openai_key_present': bool(os.environ.get('OPENAI_API_KEY'))
         })
     except Exception as e:
@@ -724,6 +960,7 @@ def test_import():
             'status': 'error',
             'error': str(e),
             'traceback': traceback.format_exc(),
+            'system_type': 'AI-First Intelligence',
             'openai_key_present': bool(os.environ.get('OPENAI_API_KEY'))
         })
 
