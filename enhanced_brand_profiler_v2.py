@@ -27,11 +27,58 @@ import colorsys
 
 class EnhancedBrandProfilerV2:
     def __init__(self, openai_api_key: str):
-        self.client = openai.OpenAI(api_key=openai_api_key)
+        # Try to use the new OpenAI client (v1.0+)
+        self.openai_api_key = openai_api_key
+        self.openai_client = None
+        self.legacy_mode = False
+        
+        try:
+            # Try new import style (OpenAI v1.0+)
+            from openai import OpenAI
+            self.openai_client = OpenAI(api_key=openai_api_key)
+            print("Using OpenAI v1.0+ client")
+        except ImportError:
+            # Fall back to legacy mode (OpenAI < v1.0)
+            openai.api_key = openai_api_key
+            self.legacy_mode = True
+            print("Using legacy OpenAI client (< v1.0)")
+        
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
+    
+    def _call_openai_chat(self, messages: List[Dict[str, str]], model: str = "gpt-4o-mini", 
+                          temperature: float = 0.3, max_tokens: int = 1000, 
+                          response_format: Optional[Dict] = None) -> Any:
+        """Wrapper to handle both old and new OpenAI API calls"""
+        try:
+            if self.legacy_mode:
+                # Legacy API call (OpenAI < v1.0)
+                kwargs = {
+                    "model": model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens
+                }
+                # Note: response_format is not supported in legacy versions
+                response = openai.ChatCompletion.create(**kwargs)
+                return response
+            else:
+                # New API call (OpenAI v1.0+)
+                kwargs = {
+                    "model": model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens
+                }
+                if response_format:
+                    kwargs["response_format"] = response_format
+                response = self.openai_client.chat.completions.create(**kwargs)
+                return response
+        except Exception as e:
+            print(f"OpenAI API call error: {e}")
+            raise
         
     def profile_brand(self, url: str, max_retries: int = 3) -> Dict[str, Any]:
         """
@@ -850,28 +897,24 @@ class EnhancedBrandProfilerV2:
     def _detect_industry(self, content: str) -> str:
         """Detect industry from content"""
         try:
-            prompt = """
-            Based on this website content, identify the primary industry/sector.
-            Be specific but concise (e.g., "SaaS project management", "E-commerce fashion", 
-            "Healthcare technology", "Financial services").
+            messages = [
+                {"role": "system", "content": "You are an expert at identifying business industries."},
+                {"role": "user", "content": f"""Based on this website content, identify the primary industry/sector.
+Be specific but concise (e.g., "SaaS project management", "E-commerce fashion", 
+"Healthcare technology", "Financial services").
+
+Content:
+{content[:2000]}
+
+Industry:"""}
+            ]
             
-            Content:
-            {content}
+            response = self._call_openai_chat(messages, temperature=0.3, max_tokens=50)
             
-            Industry:
-            """
-            
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert at identifying business industries."},
-                    {"role": "user", "content": prompt.format(content=content[:2000])}
-                ],
-                temperature=0.3,
-                max_tokens=50
-            )
-            
-            return response.choices[0].message.content.strip()
+            if self.legacy_mode:
+                return response.choices[0].message['content'].strip()
+            else:
+                return response.choices[0].message.content.strip()
             
         except Exception as e:
             print(f"Industry detection error: {e}")
@@ -954,18 +997,30 @@ class EnhancedBrandProfilerV2:
             # Format prompt with content
             prompt = prompt_template.format(content=content[:3000])  # Limit content length
             
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are a brand analysis expert. Extract only real, identifiable information. Never make up or infer information that isn't clearly present."},
-                    {"role": "user", "content": prompt}
-                ],
+            messages = [
+                {"role": "system", "content": "You are a brand analysis expert. Extract only real, identifiable information. Never make up or infer information that isn't clearly present."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            # Use JSON mode only for new API
+            kwargs = {}
+            if not self.legacy_mode:
+                kwargs['response_format'] = {"type": "json_object"}
+            
+            response = self._call_openai_chat(
+                messages, 
+                model="gpt-4o" if not self.legacy_mode else "gpt-4", 
                 temperature=0.2,
                 max_tokens=1000,
-                response_format={"type": "json_object"}
+                **kwargs
             )
             
-            result = json.loads(response.choices[0].message.content)
+            if self.legacy_mode:
+                content = response.choices[0].message['content']
+            else:
+                content = response.choices[0].message.content
+            
+            result = json.loads(content)
             
             # Clean up the result
             cleaned_result = {}
@@ -1093,7 +1148,7 @@ class EnhancedBrandProfilerV2:
         text = ' '.join(text.split())
         
         # Remove special characters but keep basic punctuation
-        text = re.sub(r'[^\w\s\-.,!?;:\'"]', ' ', text)
+        text = re.sub(r'[^\w\s\-.,!?;:\'""]', ' ', text)
         
         # Remove multiple spaces
         text = re.sub(r'\s+', ' ', text)
