@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Railway Web Interface for Premium Competitive Intelligence
-Complete web interface with premium 6-row grid system
+Railway Web Interface for Competitive Intelligence V2
+Using the improved V2 system with real data only
 """
 
 import os
@@ -11,28 +11,25 @@ from dotenv import load_dotenv
 import json
 from datetime import datetime
 import time
+import tempfile
 
-# Import our premium competitive intelligence system
+# Import our V2 competitive intelligence system
 IMPORT_ERROR = None
 SYSTEM_AVAILABLE = False
-StrategicCompetitiveIntelligence = None
 
-# Try to load the system at startup
 try:
-    from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+    from competitive_grid_generator_v2 import CompetitiveGridGeneratorV2
     SYSTEM_AVAILABLE = True
-    print("Strategic competitive intelligence system loaded successfully")
+    print("✅ V2 Competitive Intelligence System loaded successfully")
 except ImportError as e:
-    print(f"Strategic system not available - ImportError: {e}")
+    print(f"❌ V2 System not available - ImportError: {e}")
     IMPORT_ERROR = f"ImportError: {str(e)}"
     SYSTEM_AVAILABLE = False
 except Exception as e:
-    print(f"Error loading strategic system - {type(e).__name__}: {e}")
+    print(f"❌ Error loading V2 system - {type(e).__name__}: {e}")
     import traceback
     IMPORT_ERROR = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
     SYSTEM_AVAILABLE = False
-
-# NO DEMO SYSTEM - REAL DATA ONLY
 
 # Load environment variables
 load_dotenv()
@@ -43,7 +40,7 @@ if not OPENAI_API_KEY:
     print("⚠️  WARNING: OPENAI_API_KEY not found in environment variables")
     print("   The system will not be able to perform AI analysis")
 else:
-    print(f"OpenAI API key loaded ({len(OPENAI_API_KEY)} chars)")
+    print(f"✅ OpenAI API key loaded ({len(OPENAI_API_KEY)} chars)")
 
 app = Flask(__name__)
 CORS(app)
@@ -55,7 +52,7 @@ WEB_INTERFACE_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brandintell - Comprehensive Competitive Intelligence</title>
+    <title>Brandintell V2 - Real Data Competitive Intelligence</title>
     <style>
         * {
             margin: 0;
@@ -275,79 +272,52 @@ WEB_INTERFACE_TEMPLATE = """
             cursor: pointer;
         }
         
-        /* Progress Bar Styles */
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background-color: #e9ecef;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 15px;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            width: 0%;
-            transition: width 0.3s ease;
-            border-radius: 10px;
-        }
-        
-        .progress-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            font-size: 14px;
-            color: #666;
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 6px;
-        }
-        
         .examples li:hover {
             text-decoration: underline;
+        }
+        
+        .v2-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-left: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Brandintell</h1>
-            <p>Comprehensive Competitive Intelligence Analysis</p>
+            <h1>Brandintell <span class="v2-badge">V2</span></h1>
+            <p>Real Data Competitive Intelligence Analysis</p>
         </div>
         
         <div class="content">
             <div class="feature-grid">
                 <div class="feature-card">
-                    <h3>Comprehensive Brand Analysis</h3>
-                    <p>Logo, Brand Story, Personality, Colors, Typography, Visual Gallery</p>
+                    <h3>🚀 V2 Enhanced System</h3>
+                    <p>Multi-strategy extraction with BeautifulSoup, Selenium, and Playwright</p>
                 </div>
                 <div class="feature-card">
-                    <h3>🧠 AI-Powered Analysis</h3>
-                    <p>McKinsey-level strategic insights and competitive positioning</p>
+                    <h3>💯 Real Data Only</h3>
+                    <p>No placeholders or fallbacks - transparent failure reporting</p>
                 </div>
                 <div class="feature-card">
-                    <h3>Real Data Only</h3>
-                    <p>100% scraped data with enhanced privacy dialog handling</p>
+                    <h3>🔍 Industry Agnostic</h3>
+                    <p>Dynamic industry detection with no hardcoded assumptions</p>
                 </div>
                 <div class="feature-card">
-                    <h3>🔤 Typography Analysis</h3>
-                    <p>Real font extraction from CSS and style sheets</p>
+                    <h3>🧠 Intelligent Analysis</h3>
+                    <p>3 retry strategies with GPT-4 chain-of-thought reasoning</p>
                 </div>
             </div>
             
             <div class="url-form">
                 <div class="form-group">
-                    <label for="url-input">Add Competitor URLs (3-15 companies):</label>
+                    <label for="url-input">Add Competitor URLs (2-10 companies):</label>
                     <input type="url" id="url-input" class="url-input" placeholder="https://www.example.com" />
                     <button type="button" class="add-url-btn" onclick="addUrl()">Add URL</button>
                 </div>
@@ -360,35 +330,20 @@ WEB_INTERFACE_TEMPLATE = """
                 </div>
                 
                 <button type="button" class="generate-btn" onclick="generateReport()" id="generate-btn">
-                    Generate Comprehensive Intelligence Report
+                    Generate V2 Intelligence Report
                 </button>
                 
                 <div id="status" class="status"></div>
-                
-                <!-- Progress Bar -->
-                <div id="progress-container" style="display: none; margin-top: 20px;">
-                    <div class="progress-header">
-                        <span id="progress-text">Initializing analysis...</span>
-                        <span id="progress-percent">0%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div id="progress-fill" class="progress-fill"></div>
-                    </div>
-                    <div id="progress-details" class="progress-details">
-                        <div>Current: <span id="current-task">Starting up...</span></div>
-                        <div>Completed: <span id="completed-count">0</span> / <span id="total-count">0</span> brands</div>
-                    </div>
-                </div>
             </div>
             
             <div class="examples">
                 <h4>Example URLs (click to add):</h4>
                 <ul>
-                    <li onclick="addExampleUrl('https://www.wolterskluwer.com')">• Wolters Kluwer (Medical AI)</li>
-                    <li onclick="addExampleUrl('https://www.elsevier.com')">• Elsevier (Healthcare Publishing)</li>
-                    <li onclick="addExampleUrl('https://www.openevidence.com')">• OpenEvidence (Medical Platform)</li>
-                    <li onclick="addExampleUrl('https://www.apple.com')">• Apple (Technology)</li>
-                    <li onclick="addExampleUrl('https://www.microsoft.com')">• Microsoft (Enterprise Software)</li>
+                    <li onclick="addExampleUrl('https://stripe.com')">• Stripe (Payments)</li>
+                    <li onclick="addExampleUrl('https://square.com')">• Square (Commerce)</li>
+                    <li onclick="addExampleUrl('https://paypal.com')">• PayPal (Digital Payments)</li>
+                    <li onclick="addExampleUrl('https://shopify.com')">• Shopify (E-commerce)</li>
+                    <li onclick="addExampleUrl('https://woocommerce.com')">• WooCommerce (E-commerce)</li>
                 </ul>
             </div>
         </div>
@@ -416,8 +371,8 @@ WEB_INTERFACE_TEMPLATE = """
                 return;
             }
             
-            if (urls.length >= 15) {
-                alert('Maximum 15 URLs allowed');
+            if (urls.length >= 10) {
+                alert('Maximum 10 URLs allowed');
                 return;
             }
             
@@ -432,8 +387,8 @@ WEB_INTERFACE_TEMPLATE = """
                 return;
             }
             
-            if (urls.length >= 15) {
-                alert('Maximum 15 URLs allowed');
+            if (urls.length >= 10) {
+                alert('Maximum 10 URLs allowed');
                 return;
             }
             
@@ -480,22 +435,13 @@ WEB_INTERFACE_TEMPLATE = """
             const btn = document.getElementById('generate-btn');
             const status = document.getElementById('status');
             
-            // Calculate estimated time
-            const estimatedMinutes = urls.length * 8; // 8 minutes per brand for deep analysis
-            const timeMessage = estimatedMinutes > 60 ? 
-                `${Math.floor(estimatedMinutes/60)}h ${estimatedMinutes%60}m` : 
-                `${estimatedMinutes} minutes`;
-            
             btn.disabled = true;
-            btn.textContent = 'Starting Deep Analysis...';
+            btn.textContent = 'Generating V2 Report...';
             status.className = 'status loading';
-            status.textContent = `Deep analysis in progress - estimated time: ${timeMessage}. Perfect time for a coffee break!`;
-            
-            // Show progress bar
-            document.getElementById('progress-container').style.display = 'block';
+            status.textContent = 'V2 analysis in progress - this may take a few minutes...';
             
             try {
-                const response = await fetch('/api/generate-premium', {
+                const response = await fetch('/api/generate-v2', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -508,14 +454,14 @@ WEB_INTERFACE_TEMPLATE = """
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'premium_competitive_intelligence_report.html';
+                    a.download = 'brandintell_v2_report.html';
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
                     
                     status.className = 'status success';
-                    status.textContent = 'Report generated successfully! Download should start automatically.';
+                    status.textContent = 'V2 report generated successfully! Download should start automatically.';
                 } else {
                     const error = await response.text();
                     throw new Error(error);
@@ -526,7 +472,7 @@ WEB_INTERFACE_TEMPLATE = """
                 status.textContent = `❌ Error: ${error.message}`;
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Generate Comprehensive Intelligence Report';
+                btn.textContent = 'Generate V2 Intelligence Report';
             }
         }
         
@@ -548,7 +494,7 @@ def index():
 
 @app.route('/health')
 def health():
-    """Railway health check endpoint - simple and fast"""
+    """Railway health check endpoint"""
     return 'OK', 200
 
 @app.route('/api/status')
@@ -556,10 +502,17 @@ def api_status():
     """Simple status check"""
     return jsonify({
         'status': 'online',
-        'app': 'Brandintell',
-        'version': '1.0',
-        'endpoints': ['/health', '/api/status', '/debug', '/api/generate-premium'],
-        'system_loaded': SYSTEM_AVAILABLE
+        'app': 'Brandintell V2',
+        'version': '2.0',
+        'endpoints': ['/health', '/api/status', '/debug', '/api/generate-v2'],
+        'system_loaded': SYSTEM_AVAILABLE,
+        'features': [
+            'Multi-strategy extraction (BeautifulSoup, Selenium, Playwright)',
+            'Real data only - no fallbacks',
+            'Industry agnostic analysis',
+            'Intelligent retry logic',
+            'Quality scoring and confidence metrics'
+        ]
     })
 
 @app.route('/debug')
@@ -579,41 +532,41 @@ def debug():
     
     # Try importing again to get the actual error
     try:
-        from strategic_competitive_intelligence import StrategicCompetitiveIntelligence
+        from competitive_grid_generator_v2 import CompetitiveGridGeneratorV2
         debug_info['import_status'] = 'Success'
     except Exception as e:
         debug_info['import_error'] = str(e)
         debug_info['import_traceback'] = traceback.format_exc()
     
     # Check dependencies
-    try:
-        import openai
-        debug_info['openai_module'] = 'Loaded'
-    except:
-        debug_info['openai_module'] = 'Failed'
-        
-    try:
-        import selenium
-        debug_info['selenium_module'] = 'Loaded'
-    except:
-        debug_info['selenium_module'] = 'Failed'
-        
-    try:
-        import pandas
-        debug_info['pandas_module'] = 'Loaded'
-    except:
-        debug_info['pandas_module'] = 'Failed'
+    dependencies = {
+        'openai': False,
+        'selenium': False,
+        'pandas': False,
+        'beautifulsoup4': False,
+        'playwright': False,
+        'requests': False
+    }
+    
+    for module_name in dependencies:
+        try:
+            __import__(module_name)
+            dependencies[module_name] = True
+        except:
+            dependencies[module_name] = False
+    
+    debug_info['dependencies'] = dependencies
     
     return jsonify(debug_info)
 
-@app.route('/api/generate-premium', methods=['POST'])
-def generate_premium():
-    """Generate premium competitive intelligence report"""
+@app.route('/api/generate-v2', methods=['POST'])
+def generate_v2():
+    """Generate V2 competitive intelligence report"""
     # Check if system is available
-    if not SYSTEM_AVAILABLE or not StrategicCompetitiveIntelligence:
+    if not SYSTEM_AVAILABLE:
         return jsonify({
-            'error': 'Full competitive intelligence system required. No demo or fake data allowed.',
-            'details': 'Strategic competitive intelligence system not available',
+            'error': 'V2 competitive intelligence system not available',
+            'details': 'CompetitiveGridGeneratorV2 could not be loaded',
             'import_error': IMPORT_ERROR
         }), 503
     
@@ -624,46 +577,38 @@ def generate_premium():
         if len(urls) < 2:
             return jsonify({'error': 'At least 2 URLs required'}), 400
         
-        if len(urls) > 15:
-            return jsonify({'error': 'Maximum 15 URLs allowed'}), 400
+        if len(urls) > 10:
+            return jsonify({'error': 'Maximum 10 URLs allowed'}), 400
         
-        # ONLY use the full strategic competitive intelligence system
-        generator = StrategicCompetitiveIntelligence()
+        # Use the V2 system
+        generator = CompetitiveGridGeneratorV2()
         
-        # Progress tracking (simplified for this implementation)
-        progress_data = {
-            'current_step': 0,
-            'total_steps': len(urls) * 8,  # Approximate steps per brand
-            'current_task': 'Starting analysis...',
-            'brand_count': len(urls)
-        }
+        # Generate the report
+        print(f"Starting V2 analysis for {len(urls)} URLs: {urls}")
         
-        def progress_callback(message):
-            progress_data['current_step'] += 1
-            progress_data['current_task'] = message
-            print(f"Progress: {message}")
-        
-        # Generate the FULL report with real data only
-        # Use /tmp directory for Railway compatibility
-        import tempfile
-        
+        # Use temp directory for Railway compatibility
         temp_dir = tempfile.gettempdir()
-        output_filename = os.path.join(temp_dir, f"brandintell_report_{int(time.time())}.html")
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        output_filename = os.path.join(temp_dir, f"brandintell_v2_{timestamp}.html")
         
-        print(f"Starting analysis with output to: {output_filename}")
-        print(f"Analyzing {len(urls)} URLs: {urls}")
-        
-        output_file = generator.generate_strategic_intelligence_report(
+        # Generate report with V2 system
+        result = generator.generate_report(
             urls=urls,
-            report_title="Brandintell Comprehensive Intelligence Analysis",
-            output_filename=output_filename,
-            progress_callback=progress_callback
+            report_title="Brandintell V2 Competitive Intelligence Analysis",
+            output_filename=output_filename
         )
         
-        if output_file and os.path.exists(output_file):
-            return send_file(output_file, as_attachment=True, download_name='brandintell_comprehensive_report.html')
+        if result['success'] and os.path.exists(result['output_file']):
+            return send_file(
+                result['output_file'], 
+                as_attachment=True, 
+                download_name='brandintell_v2_report.html'
+            )
         else:
-            return jsonify({'error': 'Failed to generate report'}), 500
+            return jsonify({
+                'error': 'Failed to generate report',
+                'details': result.get('errors', [])
+            }), 500
             
     except Exception as e:
         import traceback
@@ -672,32 +617,8 @@ def generate_premium():
             'type': type(e).__name__,
             'traceback': traceback.format_exc()
         }
-        print(f"Error in generate_premium: {error_details}")
+        print(f"Error in generate_v2: {error_details}")
         return jsonify(error_details), 500
-
-@app.route('/api/status')
-def status():
-    """Service status endpoint"""
-    return jsonify({
-        'status': 'running',
-        'service': 'Premium Competitive Intelligence',
-        'version': '2.0',
-        'features': [
-            'Premium 6-row grid system',
-            'Real typography analysis',
-            'Visual gallery capture',
-            'Privacy dialog mitigation',
-            'McKinsey-level AI analysis',
-            'Real brand color extraction'
-        ],
-        'system_available': SYSTEM_AVAILABLE,
-        'endpoints': {
-            'GET /': 'Web interface',
-            'GET /health': 'Health check',
-            'POST /api/generate-premium': 'Generate premium report',
-            'GET /api/status': 'Service status'
-        }
-    })
 
 # Error handlers
 @app.errorhandler(404)
@@ -707,8 +628,9 @@ def not_found(error):
         'available_endpoints': [
             'GET /',
             'GET /health', 
-            'POST /api/generate-premium',
-            'GET /api/status'
+            'POST /api/generate-v2',
+            'GET /api/status',
+            'GET /debug'
         ]
     }), 404
 
@@ -721,11 +643,11 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug_mode = os.environ.get('FLASK_ENV') == 'development'
     
-    print(f"🚀 Starting Premium Competitive Intelligence on port {port}")
+    print(f"🚀 Starting Brandintell V2 on port {port}")
     print(f"🌍 Environment: {'Development' if debug_mode else 'Production'}")
     print(f"📡 Health check available at /health")
     print(f"🌐 Web interface available at /")
-    print(f"System available: {SYSTEM_AVAILABLE}")
+    print(f"✅ System available: {SYSTEM_AVAILABLE}")
     
     app.run(
         host='0.0.0.0',
