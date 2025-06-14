@@ -1,1 +1,1 @@
-web: python railway_simple_real.py
+web: gunicorn railway_app_async:app
