@@ -42,13 +42,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Skip ChromeDriver installation in Dockerfile - will handle at runtime
 # This avoids build-time issues with version compatibility
 
-# Copy application files
-COPY strategic_competitive_intelligence.py .
-COPY railway_app.py .
+# Copy V2 application files
+COPY competitive_grid_generator_v2.py .
+COPY enhanced_brand_profiler_v2.py .
+COPY ai_powered_competitive_intelligence_v2.py .
 COPY railway_app_async.py .
-COPY railway_startup_check.py .
 COPY railway_health_only.py .
-COPY deep_scraper.py .
 
 # Create required directories
 RUN mkdir -p /tmp
