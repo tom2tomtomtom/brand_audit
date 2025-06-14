@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Railway Web Interface with Async Job Processing
+Railway Web Interface with Async Job Processing for V2 System
 Handles long-running analysis tasks without timeouts
 """
 
@@ -16,260 +16,23 @@ from datetime import datetime
 import threading
 from collections import defaultdict
 
-def process_companies_ai_first(analyzer, companies_or_urls, output_filename, progress_callback):
-    """Process companies using AI-first approach and generate HTML report"""
-    
-    # Analyze each company using AI-first approach
-    company_profiles = []
-    total_companies = len(companies_or_urls)
-    
-    for i, company_input in enumerate(companies_or_urls):
-        if progress_callback:
-            progress_callback(f"🧠 AI Research: {company_input} ({i+1}/{total_companies})")
-        
-        try:
-            profile = analyzer.analyze_company(company_input, progress_callback)
-            company_profiles.append(profile)
-            
-            if progress_callback:
-                progress_callback(f"✅ Completed: {profile.get('company_name', company_input)}")
-                
-        except Exception as e:
-            if progress_callback:
-                progress_callback(f"❌ Failed: {company_input} - {str(e)}")
-            
-            # Add minimal profile for failed analysis
-            company_profiles.append({
-                'company_name': company_input,
-                'error': str(e),
-                'company_overview': {'description': 'Analysis failed'},
-                'analysis_metadata': {'confidence_level': 'Failed'}
-            })
-    
-    # Generate comprehensive HTML report
-    if progress_callback:
-        progress_callback("📊 Generating comprehensive intelligence report...")
-    
-    report_html = generate_ai_first_html_report(company_profiles)
-    
-    # Save to file
-    try:
-        with open(output_filename, 'w', encoding='utf-8') as f:
-            f.write(report_html)
-        
-        if progress_callback:
-            progress_callback(f"💾 Report saved: {output_filename}")
-        
-        return output_filename
-        
-    except Exception as e:
-        if progress_callback:
-            progress_callback(f"❌ Save failed: {str(e)}")
-        return None
-
-def generate_ai_first_html_report(company_profiles):
-    """Generate HTML report from AI-first company profiles"""
-    
-    # Filter successful analyses
-    successful_profiles = [p for p in company_profiles if p.get('analysis_metadata', {}).get('confidence_level') != 'Failed']
-    failed_profiles = [p for p in company_profiles if p.get('analysis_metadata', {}).get('confidence_level') == 'Failed']
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Brandintell - AI-First Competitive Intelligence Report</title>
-        <style>
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            body {{ font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #333; background: #f8f9fa; }}
-            .container {{ max-width: 1400px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 12px; margin-bottom: 30px; text-align: center; }}
-            .header h1 {{ font-size: 2.5em; margin-bottom: 10px; }}
-            .header p {{ font-size: 1.2em; opacity: 0.9; }}
-            .summary {{ background: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }}
-            .company-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-            .company-card {{ background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }}
-            .company-header {{ display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #eee; }}
-            .company-name {{ font-size: 1.8em; font-weight: 700; color: #2c3e50; margin-right: 15px; }}
-            .confidence-badge {{ padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }}
-            .confidence-high {{ background: #d4edda; color: #155724; }}
-            .confidence-low {{ background: #f8d7da; color: #721c24; }}
-            .section {{ margin-bottom: 25px; }}
-            .section h3 {{ color: #495057; margin-bottom: 15px; font-size: 1.2em; }}
-            .section-content {{ background: #f8f9fa; padding: 15px; border-radius: 8px; }}
-            .brand-story {{ background: linear-gradient(135deg, #667eea20, #764ba220); padding: 20px; border-radius: 8px; font-style: italic; margin-bottom: 20px; }}
-            .two-column {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
-            .list-item {{ padding: 8px 0; border-bottom: 1px solid #eee; }}
-            .list-item:last-child {{ border-bottom: none; }}
-            .screenshots {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }}
-            .screenshot {{ border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
-            .screenshot img {{ width: 100%; height: auto; display: block; }}
-            .color-palette {{ display: flex; gap: 10px; margin-top: 10px; }}
-            .color-swatch {{ width: 40px; height: 40px; border-radius: 8px; border: 2px solid #ddd; }}
-            .failed-section {{ background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin-bottom: 20px; }}
-            .metadata {{ font-size: 0.9em; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Brandintell</h1>
-                <p>AI-First Competitive Intelligence Report</p>
-                <p>Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-            </div>
-            
-            <div class="summary">
-                <h2>Executive Summary</h2>
-                <div class="two-column">
-                    <div>
-                        <h3>Analysis Overview</h3>
-                        <p><strong>Companies Analyzed:</strong> {len(company_profiles)}</p>
-                        <p><strong>Successful Analyses:</strong> {len(successful_profiles)}</p>
-                        <p><strong>Analysis Method:</strong> AI-First Intelligence Gathering</p>
-                        <p><strong>Primary Data Source:</strong> OpenAI GPT-4 Research</p>
-                    </div>
-                    <div>
-                        <h3>Key Insights</h3>
-                        <p>This report leverages advanced AI research to provide comprehensive competitive intelligence with visual enhancement. Each company profile includes strategic positioning, market analysis, and brand differentiation insights.</p>
-                    </div>
-                </div>
-            </div>
-    """
-    
-    # Add failed analyses section if any
-    if failed_profiles:
-        html_content += f"""
-            <div class="failed-section">
-                <h3>Analysis Limitations</h3>
-                <p>The following companies could not be fully analyzed:</p>
-                <ul>
-                    {''.join([f"<li>{p['company_name']}: {p.get('error', 'Unknown error')}</li>" for p in failed_profiles])}
-                </ul>
-            </div>
-        """
-    
-    # Add company profiles
-    html_content += '<div class="company-grid">'
-    
-    for profile in successful_profiles:
-        company_name = profile.get('company_name', 'Unknown Company')
-        confidence = profile.get('analysis_metadata', {}).get('confidence_level', 'Unknown')
-        
-        # Company overview
-        overview = profile.get('company_overview', {})
-        products = profile.get('products_services', {})
-        market_pos = profile.get('market_position', {})
-        competitive = profile.get('competitive_landscape', {})
-        strategic = profile.get('strategic_intelligence', {})
-        brand_pos = profile.get('brand_positioning', {})
-        visual = profile.get('visual_identity', {})
-        
-        html_content += f"""
-            <div class="company-card">
-                <div class="company-header">
-                    <div class="company-name">{company_name}</div>
-                    <div class="confidence-badge confidence-{confidence.lower()}">{confidence} Confidence</div>
-                </div>
-                
-                <div class="brand-story">
-                    "{profile.get('brand_story', 'Brand story not available')}"
-                </div>
-                
-                <div class="section">
-                    <h3>Company Overview</h3>
-                    <div class="section-content">
-                        <p><strong>Industry:</strong> {overview.get('industry', 'Not specified')}</p>
-                        <p><strong>Business Model:</strong> {overview.get('business_model', 'Not specified')}</p>
-                        <p><strong>Target Market:</strong> {overview.get('target_market', 'Not specified')}</p>
-                        <p><strong>Founded:</strong> {overview.get('founded', 'Not specified')}</p>
-                        <p><strong>Headquarters:</strong> {overview.get('headquarters', 'Not specified')}</p>
-                        <p><strong>Description:</strong> {overview.get('description', 'Not available')}</p>
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <h3>Products & Services</h3>
-                    <div class="section-content">
-                        {''.join([f'<div class="list-item">{product}</div>' for product in products.get('main_products', [])[:5]])}
-                        {f'<p><strong>Categories:</strong> {", ".join(products.get("product_categories", [])[:3])}</p>' if products.get('product_categories') else ''}
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <h3>Market Position</h3>
-                    <div class="section-content">
-                        <p><strong>Market Leadership:</strong> {market_pos.get('market_leadership', 'Not specified')}</p>
-                        <div><strong>Key Differentiators:</strong></div>
-                        {''.join([f'<div class="list-item">• {diff}</div>' for diff in market_pos.get('key_differentiators', [])[:3]])}
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <h3>Competitive Intelligence</h3>
-                    <div class="section-content">
-                        <div><strong>Main Competitors:</strong></div>
-                        {''.join([f'<div class="list-item">{comp}</div>' for comp in competitive.get('main_competitors', [])[:4]])}
-                        <div style="margin-top: 15px;"><strong>Recent Developments:</strong></div>
-                        {''.join([f'<div class="list-item">• {dev}</div>' for dev in strategic.get('recent_developments', [])[:3]])}
-                    </div>
-                </div>
-        """
-        
-        # Visual identity if available
-        if visual:
-            html_content += f"""
-                <div class="section">
-                    <h3>Visual Identity</h3>
-                    <div class="section-content">
-                        <div><strong>Primary Font:</strong> {visual.get('fonts', {}).get('primary_font', 'Not detected')}</div>
-                        <div><strong>Brand Colors:</strong></div>
-                        <div class="color-palette">
-                            {''.join([f'<div class="color-swatch" style="background-color: {color};" title="{color}"></div>' for color in visual.get('colors', [])[:6]])}
-                        </div>
-                        {'<div class="screenshots">' + ''.join([f'<div class="screenshot"><img src="{img}" alt="Website screenshot" /></div>' for img in visual.get('screenshots', [])[:2]]) + '</div>' if visual.get('screenshots') else ''}
-                    </div>
-                </div>
-            """
-        
-        html_content += f"""
-                <div class="metadata">
-                    <p><strong>Analysis Method:</strong> {profile.get('analysis_metadata', {}).get('extraction_method', 'Unknown')}</p>
-                    <p><strong>Data Sources:</strong> {', '.join(profile.get('analysis_metadata', {}).get('data_sources', []))}</p>
-                    <p><strong>Official URL:</strong> <a href="{profile.get('official_url', '#')}" target="_blank">{profile.get('official_url', 'Not found')}</a></p>
-                </div>
-            </div>
-        """
-    
-    html_content += """
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return html_content
-
 # Ensure the current directory is in the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import our AI-first competitive intelligence system
+# Import our V2 competitive intelligence system
 IMPORT_ERROR = None
 SYSTEM_AVAILABLE = False
-AIFirstCompetitiveIntelligence = None
 
-# Try to load the AI-first system at startup
 try:
-    from ai_first_intelligence import AIFirstCompetitiveIntelligence
+    from competitive_grid_generator_v2 import CompetitiveGridGeneratorV2
     SYSTEM_AVAILABLE = True
-    print("AI-first competitive intelligence system loaded successfully")
+    print("✅ V2 Competitive Intelligence System loaded successfully")
 except ImportError as e:
-    print(f"AI-first system not available - ImportError: {e}")
+    print(f"❌ V2 System not available - ImportError: {e}")
     IMPORT_ERROR = f"ImportError: {str(e)}"
     SYSTEM_AVAILABLE = False
 except Exception as e:
-    print(f"Error loading AI-first system - {type(e).__name__}: {e}")
+    print(f"❌ Error loading V2 system - {type(e).__name__}: {e}")
     import traceback
     IMPORT_ERROR = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
     SYSTEM_AVAILABLE = False
@@ -282,7 +45,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     print("⚠️  WARNING: OPENAI_API_KEY not found in environment variables")
 else:
-    print(f"OpenAI API key loaded ({len(OPENAI_API_KEY)} chars)")
+    print(f"✅ OpenAI API key loaded ({len(OPENAI_API_KEY)} chars)")
 
 app = Flask(__name__)
 CORS(app)
@@ -291,67 +54,61 @@ CORS(app)
 jobs = defaultdict(dict)
 job_lock = threading.Lock()
 
-def run_analysis_job(job_id, companies_or_urls):
-    """Run analysis in background thread"""
+def run_analysis_job(job_id, urls):
+    """Run V2 analysis in background thread"""
     with job_lock:
         jobs[job_id]['status'] = 'running'
         jobs[job_id]['started_at'] = datetime.now().isoformat()
         jobs[job_id]['progress'] = 0
-        jobs[job_id]['message'] = 'Initializing analysis...'
+        jobs[job_id]['message'] = 'Initializing V2 analysis...'
     
     try:
         # Import inside the thread to avoid import issues
-        print(f"Job {job_id}: Importing AI-first intelligence system...")
+        print(f"Job {job_id}: Importing V2 intelligence system...")
         try:
-            from ai_first_intelligence import AIFirstCompetitiveIntelligence
-            analyzer = AIFirstCompetitiveIntelligence()
-            print(f"Job {job_id}: AI-first system imported successfully")
+            from competitive_grid_generator_v2 import CompetitiveGridGeneratorV2
+            generator = CompetitiveGridGeneratorV2()
+            print(f"Job {job_id}: V2 system imported successfully")
         except Exception as e:
-            print(f"Job {job_id}: Failed to import AI-first system: {e}")
-            raise Exception(f"Failed to import AI-first analysis system: {e}")
-        
-        def progress_callback(message):
-            with job_lock:
-                jobs[job_id]['progress'] += 1
-                jobs[job_id]['message'] = message
-                jobs[job_id]['last_update'] = datetime.now().isoformat()
-            print(f"Job {job_id}: {message}")
+            print(f"Job {job_id}: Failed to import V2 system: {e}")
+            raise Exception(f"Failed to import V2 analysis system: {e}")
         
         # Use temp directory
         import tempfile
         temp_dir = tempfile.gettempdir()
-        output_filename = os.path.join(temp_dir, f"brandintell_{job_id}.html")
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        output_filename = os.path.join(temp_dir, f"brandintell_v2_{job_id}_{timestamp}.html")
         
-        print(f"Job {job_id}: Starting AI-first analysis")
+        print(f"Job {job_id}: Starting V2 analysis")
         print(f"Job {job_id}: Output will be saved to: {output_filename}")
-        print(f"Job {job_id}: Processing {len(companies_or_urls)} companies: {companies_or_urls}")
+        print(f"Job {job_id}: Processing {len(urls)} URLs: {urls}")
         
         # Update progress
         with job_lock:
-            jobs[job_id]['message'] = f'AI research phase: {len(companies_or_urls)} companies...'
-            jobs[job_id]['companies'] = companies_or_urls
+            jobs[job_id]['message'] = f'V2 analysis phase: {len(urls)} companies...'
+            jobs[job_id]['urls'] = urls
         
-        # Process companies using AI-first approach
-        output_file = process_companies_ai_first(
-            analyzer=analyzer,
-            companies_or_urls=companies_or_urls,
-            output_filename=output_filename,
-            progress_callback=progress_callback
+        # Process with V2 system
+        result = generator.generate_report(
+            urls=urls,
+            report_title="Brandintell V2 Competitive Intelligence Analysis",
+            output_filename=output_filename
         )
         
-        print(f"Job {job_id}: Report generation returned: {output_file}")
+        print(f"Job {job_id}: Report generation returned: {result}")
         
         with job_lock:
-            if output_file and os.path.exists(output_file):
+            if result['success'] and os.path.exists(result['output_file']):
                 jobs[job_id]['status'] = 'completed'
-                jobs[job_id]['output_file'] = output_file
+                jobs[job_id]['output_file'] = result['output_file']
                 jobs[job_id]['completed_at'] = datetime.now().isoformat()
-                print(f"Job {job_id} completed successfully. Report saved to: {output_file}")
+                jobs[job_id]['brands_analyzed'] = result.get('brands_analyzed', 0)
+                print(f"Job {job_id} completed successfully. Report saved to: {result['output_file']}")
             else:
                 jobs[job_id]['status'] = 'failed'
-                jobs[job_id]['error'] = 'Report generation returned no file'
+                jobs[job_id]['error'] = result.get('errors', ['Report generation failed'])
                 jobs[job_id]['failed_at'] = datetime.now().isoformat()
-                print(f"Job {job_id} failed: No output file generated")
+                print(f"Job {job_id} failed: {result.get('errors', ['Unknown error'])}")
             
     except Exception as e:
         import traceback
@@ -362,14 +119,14 @@ def run_analysis_job(job_id, companies_or_urls):
             jobs[job_id]['failed_at'] = datetime.now().isoformat()
         print(f"Job {job_id} failed: {e}")
 
-# HTML Template (simplified for async)
+# HTML Template for async V2 interface
 WEB_INTERFACE_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brandintell - Comprehensive Competitive Intelligence</title>
+    <title>Brandintell V2 - Real Data Competitive Intelligence</title>
     <style>
         * {
             margin: 0;
@@ -411,8 +168,45 @@ WEB_INTERFACE_TEMPLATE = """
             opacity: 0.9;
         }
         
+        .v2-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
         .content {
             padding: 40px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+        
+        .feature-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .feature-card p {
+            color: #6c757d;
+            font-size: 0.9em;
         }
         
         .url-form {
@@ -570,24 +364,67 @@ WEB_INTERFACE_TEMPLATE = """
             color: #666;
             margin-top: 10px;
         }
+        
+        .examples {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .examples h4 {
+            color: #0066cc;
+            margin-bottom: 10px;
+        }
+        
+        .examples ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .examples li {
+            padding: 5px 0;
+            color: #0066cc;
+            cursor: pointer;
+        }
+        
+        .examples li:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Brandintell</h1>
-            <p>Comprehensive Competitive Intelligence Analysis</p>
+            <h1>Brandintell <span class="v2-badge">V2</span></h1>
+            <p>Real Data Competitive Intelligence Analysis</p>
         </div>
         
         <div class="content">
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>🚀 Multi-Strategy</h3>
+                    <p>BeautifulSoup, Selenium, and Playwright extraction</p>
+                </div>
+                <div class="feature-card">
+                    <h3>💯 Real Data Only</h3>
+                    <p>No placeholders - transparent failure reporting</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🧠 Intelligent Retry</h3>
+                    <p>3 strategies with GPT-4 chain-of-thought</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⚡ Async Processing</h3>
+                    <p>No timeouts - perfect for Railway deployment</p>
+                </div>
+            </div>
+            
             <div class="url-form">
                 <div class="form-group">
-                    <label for="url-input">Add Competitors (2-15 companies):</label>
-                    <input type="text" id="url-input" class="url-input" placeholder="Microsoft  OR  Apple, USA  OR  https://www.example.com" />
-                    <button type="button" class="add-url-btn" onclick="addUrl()">Add Company</button>
-                    <small style="display: block; margin-top: 5px; color: #666;">
-                        Enter: Company name, URL, or "Company, Country" (e.g., "Microsoft" or "Apple, USA" or "https://microsoft.com")
-                    </small>
+                    <label for="url-input">Add Competitor URLs (2-10 companies):</label>
+                    <input type="url" id="url-input" class="url-input" placeholder="https://www.example.com" />
+                    <button type="button" class="add-url-btn" onclick="addUrl()">Add URL</button>
                 </div>
                 
                 <div class="form-group">
@@ -598,7 +435,7 @@ WEB_INTERFACE_TEMPLATE = """
                 </div>
                 
                 <button type="button" class="generate-btn" onclick="generateReport()" id="generate-btn">
-                    Generate Comprehensive Intelligence Report
+                    Generate V2 Intelligence Report
                 </button>
                 
                 <div id="status" class="status"></div>
@@ -610,6 +447,17 @@ WEB_INTERFACE_TEMPLATE = """
                     <div id="progress-message" class="progress-message">Starting analysis...</div>
                 </div>
             </div>
+            
+            <div class="examples">
+                <h4>Example URLs (click to add):</h4>
+                <ul>
+                    <li onclick="addExampleUrl('https://stripe.com')">• Stripe (Payments)</li>
+                    <li onclick="addExampleUrl('https://square.com')">• Square (Commerce)</li>
+                    <li onclick="addExampleUrl('https://paypal.com')">• PayPal (Digital Payments)</li>
+                    <li onclick="addExampleUrl('https://shopify.com')">• Shopify (E-commerce)</li>
+                    <li onclick="addExampleUrl('https://woocommerce.com')">• WooCommerce (E-commerce)</li>
+                </ul>
+            </div>
         </div>
     </div>
     
@@ -620,44 +468,46 @@ WEB_INTERFACE_TEMPLATE = """
         
         function addUrl() {
             const input = document.getElementById('url-input');
-            const entry = input.value.trim();
+            const url = input.value.trim();
             
-            if (!entry) {
-                alert('Please enter a company name or URL');
+            if (!url) {
+                alert('Please enter a URL');
                 return;
             }
             
-            // Allow company names, not just URLs
-            if (!isValidEntry(entry)) {
-                alert('Please enter a valid company name, "Company, Country", or URL');
+            if (!isValidUrl(url)) {
+                alert('Please enter a valid URL (e.g., https://www.example.com)');
                 return;
             }
             
-            if (urls.includes(entry)) {
-                alert('This company has already been added');
+            if (urls.includes(url)) {
+                alert('This URL has already been added');
                 return;
             }
             
-            if (urls.length >= 15) {
-                alert('Maximum 15 companies allowed');
+            if (urls.length >= 10) {
+                alert('Maximum 10 URLs allowed');
                 return;
             }
             
-            urls.push(entry);
+            urls.push(url);
             input.value = '';
             updateUrlList();
         }
         
-        function isValidEntry(entry) {
-            // Check if it's a URL
-            if (entry.startsWith('http://') || entry.startsWith('https://')) {
-                return isValidUrl(entry);
+        function addExampleUrl(url) {
+            if (urls.includes(url)) {
+                alert('This URL has already been added');
+                return;
             }
             
-            // Otherwise, it's a company name (with optional country)
-            // Basic validation: at least 2 characters
-            const companyName = entry.split(',')[0].trim();
-            return companyName.length >= 2;
+            if (urls.length >= 10) {
+                alert('Maximum 10 URLs allowed');
+                return;
+            }
+            
+            urls.push(url);
+            updateUrlList();
         }
         
         function removeUrl(index) {
@@ -701,14 +551,14 @@ WEB_INTERFACE_TEMPLATE = """
             const progressContainer = document.getElementById('progress-container');
             
             btn.disabled = true;
-            btn.textContent = 'Starting Analysis...';
+            btn.textContent = 'Starting V2 Analysis...';
             status.className = 'status loading';
-            status.textContent = 'Initiating analysis job...';
+            status.textContent = 'Initiating V2 analysis job...';
             progressContainer.style.display = 'block';
             
             try {
                 // Start the job
-                const response = await fetch('/api/start-analysis', {
+                const response = await fetch('/api/start-v2-analysis', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -724,7 +574,7 @@ WEB_INTERFACE_TEMPLATE = """
                 const data = await response.json();
                 currentJobId = data.job_id;
                 
-                status.textContent = `Analysis started. Job ID: ${currentJobId}`;
+                status.textContent = `V2 analysis started. Job ID: ${currentJobId}`;
                 
                 // Start polling for status
                 pollJobStatus();
@@ -733,7 +583,7 @@ WEB_INTERFACE_TEMPLATE = """
                 status.className = 'status error';
                 status.textContent = `Error: ${error.message}`;
                 btn.disabled = false;
-                btn.textContent = 'Generate Comprehensive Intelligence Report';
+                btn.textContent = 'Generate V2 Intelligence Report';
                 progressContainer.style.display = 'none';
             }
         }
@@ -752,7 +602,7 @@ WEB_INTERFACE_TEMPLATE = """
                 
                 if (data.status === 'running') {
                     // Update progress
-                    const progress = Math.min((data.progress || 0) * 5, 95); // Rough estimate
+                    const progress = Math.min((data.progress || 0) * 10, 95); // Rough estimate
                     progressFill.style.width = progress + '%';
                     progressMessage.textContent = data.message || 'Processing...';
                     
@@ -762,16 +612,16 @@ WEB_INTERFACE_TEMPLATE = """
                 } else if (data.status === 'completed') {
                     // Job completed successfully
                     progressFill.style.width = '100%';
-                    progressMessage.textContent = 'Analysis complete!';
+                    progressMessage.textContent = 'V2 analysis complete!';
                     status.className = 'status success';
-                    status.textContent = 'Report generated successfully! Downloading...';
+                    status.textContent = 'V2 report generated successfully! Downloading...';
                     
                     // Download the report
-                    window.location.href = `/api/download-report/${currentJobId}`;
+                    window.location.href = `/api/download-v2-report/${currentJobId}`;
                     
                     // Reset UI
                     btn.disabled = false;
-                    btn.textContent = 'Generate Comprehensive Intelligence Report';
+                    btn.textContent = 'Generate V2 Intelligence Report';
                     setTimeout(() => {
                         document.getElementById('progress-container').style.display = 'none';
                     }, 3000);
@@ -779,9 +629,9 @@ WEB_INTERFACE_TEMPLATE = """
                 } else if (data.status === 'failed') {
                     // Job failed
                     status.className = 'status error';
-                    status.textContent = `Analysis failed: ${data.error}`;
+                    status.textContent = `V2 analysis failed: ${data.error}`;
                     btn.disabled = false;
-                    btn.textContent = 'Generate Comprehensive Intelligence Report';
+                    btn.textContent = 'Generate V2 Intelligence Report';
                     document.getElementById('progress-container').style.display = 'none';
                 }
                 
@@ -813,25 +663,22 @@ def health():
     """Railway health check endpoint"""
     return 'OK', 200
 
-@app.route('/api/start-analysis', methods=['POST'])
-def start_analysis():
-    """Start analysis job in background"""
-    print("Received analysis request")
-    
-    # Don't check system availability here - import dynamically in thread
-    # This avoids import issues with gunicorn workers
+@app.route('/api/start-v2-analysis', methods=['POST'])
+def start_v2_analysis():
+    """Start V2 analysis job in background"""
+    print("Received V2 analysis request")
     
     try:
         data = request.get_json()
-        companies_or_urls = data.get('urls', [])  # Still called 'urls' in the API for compatibility
+        urls = data.get('urls', [])
         
-        print(f"Received companies/URLs: {companies_or_urls}")
+        print(f"Received URLs: {urls}")
         
-        if len(companies_or_urls) < 2:
-            return jsonify({'error': 'At least 2 companies required'}), 400
+        if len(urls) < 2:
+            return jsonify({'error': 'At least 2 URLs required'}), 400
         
-        if len(companies_or_urls) > 15:
-            return jsonify({'error': 'Maximum 15 companies allowed'}), 400
+        if len(urls) > 10:
+            return jsonify({'error': 'Maximum 10 URLs allowed'}), 400
         
         # Create job ID
         job_id = str(uuid.uuid4())
@@ -842,13 +689,13 @@ def start_analysis():
             jobs[job_id] = {
                 'id': job_id,
                 'status': 'pending',
-                'companies_or_urls': companies_or_urls,
+                'urls': urls,
                 'created_at': datetime.now().isoformat(),
                 'progress': 0
             }
         
         # Start background thread
-        thread = threading.Thread(target=run_analysis_job, args=(job_id, companies_or_urls))
+        thread = threading.Thread(target=run_analysis_job, args=(job_id, urls))
         thread.daemon = True
         thread.start()
         
@@ -857,12 +704,12 @@ def start_analysis():
         return jsonify({
             'job_id': job_id,
             'status': 'started',
-            'message': f'Analysis started for {len(companies_or_urls)} companies'
+            'message': f'V2 analysis started for {len(urls)} URLs'
         })
         
     except Exception as e:
         import traceback
-        print(f"Error starting analysis: {e}")
+        print(f"Error starting V2 analysis: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
@@ -877,9 +724,9 @@ def job_status(job_id):
     
     return jsonify(job)
 
-@app.route('/api/download-report/<job_id>')
-def download_report(job_id):
-    """Download completed report"""
+@app.route('/api/download-v2-report/<job_id>')
+def download_v2_report(job_id):
+    """Download completed V2 report"""
     with job_lock:
         job = jobs.get(job_id)
     
@@ -899,7 +746,7 @@ def download_report(job_id):
     if output_file and os.path.exists(output_file):
         print(f"Sending file: {output_file}")
         return send_file(output_file, as_attachment=True, 
-                        download_name='brandintell_comprehensive_report.html')
+                        download_name='brandintell_v2_report.html')
     else:
         return jsonify({
             'error': 'Report file not found',
@@ -913,16 +760,17 @@ def api_status():
     """Service status endpoint"""
     return jsonify({
         'status': 'running',
-        'service': 'Brandintell Async',
-        'version': '2.1',
+        'service': 'Brandintell V2 Async',
+        'version': '2.0',
         'system_available': SYSTEM_AVAILABLE,
         'endpoints': {
             'GET /': 'Web interface',
             'GET /health': 'Health check',
-            'POST /api/start-analysis': 'Start analysis job',
+            'POST /api/start-v2-analysis': 'Start V2 analysis job',
             'GET /api/job-status/<id>': 'Get job status',
-            'GET /api/download-report/<id>': 'Download report',
-            'GET /api/debug/jobs': 'Debug - list all jobs'
+            'GET /api/download-v2-report/<id>': 'Download V2 report',
+            'GET /api/debug/jobs': 'Debug - list all jobs',
+            'GET /api/test-import': 'Test V2 import'
         }
     })
 
@@ -945,13 +793,13 @@ def debug_jobs():
 
 @app.route('/api/test-import')
 def test_import():
-    """Test if the AI-first system can be imported"""
+    """Test if the V2 system can be imported"""
     try:
-        from ai_first_intelligence import AIFirstCompetitiveIntelligence
+        from competitive_grid_generator_v2 import CompetitiveGridGeneratorV2
         return jsonify({
             'status': 'success',
-            'message': 'AI-first system can be imported successfully',
-            'system_type': 'AI-First Intelligence',
+            'message': 'V2 system can be imported successfully',
+            'system_type': 'V2 Competitive Intelligence',
             'openai_key_present': bool(os.environ.get('OPENAI_API_KEY'))
         })
     except Exception as e:
@@ -960,7 +808,7 @@ def test_import():
             'status': 'error',
             'error': str(e),
             'traceback': traceback.format_exc(),
-            'system_type': 'AI-First Intelligence',
+            'system_type': 'V2 Competitive Intelligence',
             'openai_key_present': bool(os.environ.get('OPENAI_API_KEY'))
         })
 
@@ -968,8 +816,8 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug_mode = os.environ.get('FLASK_ENV') == 'development'
     
-    print(f"🚀 Starting Brandintell Async on port {port}")
-    print(f"System available: {SYSTEM_AVAILABLE}")
+    print(f"🚀 Starting Brandintell V2 Async on port {port}")
+    print(f"✅ System available: {SYSTEM_AVAILABLE}")
     
     app.run(
         host='0.0.0.0',
