@@ -7,8 +7,6 @@ Industry-agnostic with dynamic analysis
 
 import requests
 from bs4 import BeautifulSoup
-import openai
-from openai import OpenAI
 import pandas as pd
 import os
 import json
@@ -19,14 +17,53 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from enhanced_brand_profiler_v2 import EnhancedBrandProfilerV2
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Handle both old and new OpenAI library versions
+try:
+    # Try new import style (openai >= 1.0)
+    from openai import OpenAI
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    OPENAI_VERSION = "new"
+except ImportError:
+    # Fall back to old import style (openai < 1.0)
+    import openai
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+    client = None
+    OPENAI_VERSION = "old"
 
 class CompetitiveGridGeneratorV2:
     def __init__(self):
         self.profiler = EnhancedBrandProfilerV2()
         self.brand_profiles = []
         self.failed_extractions = []
+        
+        # Verify OpenAI is configured
+        if not os.getenv("OPENAI_API_KEY"):
+            print("⚠️  WARNING: OPENAI_API_KEY not found in environment variables")
+    
+    def _call_openai_chat(self, messages, model="gpt-4o-mini", temperature=0.1, max_tokens=100):
+        """Wrapper to handle both old and new OpenAI API versions"""
+        try:
+            if OPENAI_VERSION == "new" and client:
+                # New API style
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                return response.choices[0].message.content
+            else:
+                # Old API style
+                response = openai.ChatCompletion.create(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                return response.choices[0].message.content
+        except Exception as e:
+            print(f"OpenAI API error: {e}")
+            return None
     
     def analyze_brands(self, urls):
         """Analyze multiple brands - real data only"""
@@ -122,24 +159,22 @@ class CompetitiveGridGeneratorV2:
                 profile['parsed_content'].get('meta_data', {}).get('description', '')
             ])
             
-            if content_text:
+            if content_text and os.getenv("OPENAI_API_KEY"):
                 # Quick AI analysis for personality
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=[
-                            {"role": "system", "content": "Extract 4-6 brand personality descriptors from content."},
-                            {"role": "user", "content": f"Based on this content, what are 4-6 personality traits? Content: {content_text[:500]} Return only a JSON array of descriptors."}
-                        ],
-                        temperature=0.1,
-                        max_tokens=100
-                    )
-                    
-                    result = response.choices[0].message.content
-                    descriptors = json.loads(result)
-                    
-                except:
-                    pass
+                result = self._call_openai_chat(
+                    messages=[
+                        {"role": "system", "content": "Extract 4-6 brand personality descriptors from content."},
+                        {"role": "user", "content": f"Based on this content, what are 4-6 personality traits? Content: {content_text[:500]} Return only a JSON array of descriptors."}
+                    ],
+                    temperature=0.1,
+                    max_tokens=100
+                )
+                
+                if result:
+                    try:
+                        descriptors = json.loads(result)
+                    except:
+                        pass
         
         return descriptors[:6] if descriptors else []
     
@@ -809,32 +844,39 @@ class CompetitiveGridGeneratorV2:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             output_filename = f"competitive_grid_real_data_{timestamp}.html"
         
-        # Analyze brands
-        results = self.analyze_brands(urls)
-        
-        # Generate HTML
-        if results['successful']:
-            html_content = self.generate_grid_html(report_title)
-        else:
-            html_content = self.generate_error_page("No brands could be successfully analyzed")
-        
-        # Save report
         try:
+            # Analyze brands
+            results = self.analyze_brands(urls)
+            
+            # Generate HTML
+            if results['successful']:
+                html_content = self.generate_grid_html(report_title)
+            else:
+                html_content = self.generate_error_page("No brands could be successfully analyzed")
+            
+            # Save report
             with open(output_filename, 'w', encoding='utf-8') as f:
                 f.write(html_content)
             
             print(f"\n📄 Report saved: {output_filename}")
             
             return {
+                'success': True,
+                'output_file': output_filename,
+                'brands_analyzed': len(results['successful']),
+                'failed_count': len(results['failed']),
                 'filename': output_filename,
                 'successful_count': len(results['successful']),
-                'failed_count': len(results['failed']),
                 'brands': results['successful']
             }
             
         except Exception as e:
-            print(f"❌ Error saving report: {e}")
-            return None
+            print(f"❌ Error generating report: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'output_file': None
+            }
 
 def main():
     """Example usage"""
@@ -856,7 +898,7 @@ def main():
         output_filename="payment_platforms_grid.html"
     )
     
-    if result:
+    if result and result.get('success'):
         print(f"\n✅ SUCCESS!")
         print(f"📊 Analyzed: {result['successful_count']} brands")
         print(f"❌ Failed: {result['failed_count']} brands")
